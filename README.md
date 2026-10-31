@@ -171,3 +171,5 @@ java -Dfile.encoding=UTF-8 -cp bin com.gymmanagement.Main
 ### Thông tin đăng nhập
 - **Tên đăng nhập:** `admin`
 - **Mật khẩu:** `123456`
+#   G Y M  
+ 
