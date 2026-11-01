@@ -30,7 +30,6 @@ public class MemberView extends JPanel {
     private void initUI() {
         // 1. Action Toolbar Panel (Tìm kiếm, Thao tác CRUD)
         JPanel topPanel = UITheme.createCardPanel();
-        topPanel.setLayout(new BorderLayout(16, 0));
 
         // Nhánh trái: Tìm kiếm
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
@@ -63,8 +62,7 @@ public class MemberView extends JPanel {
         actionPanel.add(btnEdit);
         actionPanel.add(btnDelete);
 
-        topPanel.add(searchPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        UITheme.arrangeToolbar(topPanel, searchPanel, actionPanel);
 
         // 2. Bảng dữ liệu (Table)
         JPanel tablePanel = UITheme.createCardPanel();

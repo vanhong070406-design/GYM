@@ -1,9 +1,15 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.AreaDao;
+import com.gymmanagement.dao.MemberDao;
+import com.gymmanagement.dao.PTSessionDao;
+import com.gymmanagement.dao.TrainerDao;
 import com.gymmanagement.model.Area;
+import com.gymmanagement.model.Member;
 import com.gymmanagement.model.PTSession;
 import com.gymmanagement.model.Trainer;
+import com.gymmanagement.model.UserSession;
+import com.gymmanagement.view.MainView;
 import com.gymmanagement.view.PTSessionView;
 import com.gymmanagement.view.UITheme;
 
@@ -13,6 +19,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -20,14 +27,18 @@ import java.util.List;
  */
 public class PTSessionController {
     private final PTSessionView view;
-    private final SampleData data;
+    private final UserSession session;
+    private final MemberDao memberDao = new MemberDao();
+    private final PTSessionDao dao = new PTSessionDao();
+    private final TrainerDao trainerDao = new TrainerDao();
+    private final AreaDao areaDao = new AreaDao();
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public PTSessionController(PTSessionView view) {
+    public PTSessionController(PTSessionView view, UserSession session) {
         this.view = view;
-        this.data = SampleData.getInstance();
+        this.session = session;
         initListeners();
-        loadData(data.getPtSessions());
+        reload();
     }
 
     private void initListeners() {
@@ -37,7 +48,7 @@ public class PTSessionController {
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
             view.getCbFilterStatus().setSelectedIndex(0);
-            loadData(data.getPtSessions());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showSessionDialog(null));
@@ -71,48 +82,55 @@ public class PTSessionController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getPtSessions().removeIf(s -> s.getSessionId().equalsIgnoreCase(sesId));
-                loadData(data.getPtSessions());
+                if (!DbAction.run(view, () -> dao.delete(sesId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa lịch tập PT thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<PTSession> fetchAll() {
+        List<PTSession> all = DbAction.fetch(view, dao::findAll, List.of());
+        if (!session.isOwnOnly(MainView.CARD_PTSESSION)) return all;
+        // HLV chỉ thấy buổi tập của mình
+        return all.stream().filter(s -> s.getTrainerId().equals(session.getTrainerId())).toList();
+    }
+
+    public void reload() {
+        handleFilter();
     }
 
     public void loadData(List<PTSession> list) {
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
         for (PTSession s : list) {
-            String trainerName = getTrainerName(s.getTrainerId());
             model.addRow(new Object[]{
                     s.getSessionId(),
-                    s.getStartTime(),
-                    s.getEndTime(),
+                    Formats.text(s.getStartTime()),
+                    Formats.text(s.getEndTime()),
                     s.getStatus(),
                     s.getTrainerId(),
-                    trainerName,
-                    s.getAreaId()
+                    s.getTrainerName(),
+                    s.getAreaId(),
+                    s.getMemberId(),
+                    s.getMemberName()
             });
         }
-    }
-
-    private String getTrainerName(String trainerId) {
-        for (Trainer t : data.getTrainers()) {
-            if (t.getTrainerId().equalsIgnoreCase(trainerId)) return t.getFullName();
-        }
-        return "N/A";
     }
 
     private void handleFilter() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         String statusFilter = (String) view.getCbFilterStatus().getSelectedItem();
 
-        List<PTSession> filtered = data.getPtSessions().stream()
+        List<PTSession> filtered = fetchAll().stream()
                 .filter(s -> {
                     boolean matchQ = q.isEmpty()
                             || s.getSessionId().toLowerCase().contains(q)
                             || s.getTrainerId().toLowerCase().contains(q)
                             || s.getAreaId().toLowerCase().contains(q)
-                            || getTrainerName(s.getTrainerId()).toLowerCase().contains(q);
+                            || s.getTrainerName().toLowerCase().contains(q)
+                            || s.getMemberId().toLowerCase().contains(q)
+                            || s.getMemberName().toLowerCase().contains(q);
 
                     boolean matchStatus = "Tất cả".equals(statusFilter)
                             || s.getStatus().equalsIgnoreCase(statusFilter);
@@ -125,7 +143,7 @@ public class PTSessionController {
     }
 
     private PTSession findSessionById(String id) {
-        for (PTSession s : data.getPtSessions()) {
+        for (PTSession s : fetchAll()) {
             if (s.getSessionId().equalsIgnoreCase(id)) return s;
         }
         return null;
@@ -135,7 +153,7 @@ public class PTSessionController {
         boolean isEdit = (sesToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa lịch tập PT" : "Đặt lịch tập PT mới", true);
-        dialog.setSize(480, 420);
+        dialog.setSize(480, 470);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -152,14 +170,27 @@ public class PTSessionController {
         JTextField txtEnd = UITheme.createTextField(15);
 
         JComboBox<Trainer> cbTrainer = new JComboBox<>();
-        for (Trainer t : data.getTrainers()) cbTrainer.addItem(t);
+        for (Trainer t : DbAction.fetch(view, trainerDao::findAll, List.<Trainer>of())) cbTrainer.addItem(t);
         cbTrainer.setFont(UITheme.FONT_REGULAR);
         cbTrainer.setBackground(Color.WHITE);
 
         JComboBox<Area> cbArea = new JComboBox<>();
-        for (Area a : data.getAreas()) cbArea.addItem(a);
+        for (Area a : DbAction.fetch(view, areaDao::findAll, List.<Area>of())) cbArea.addItem(a);
         cbArea.setFont(UITheme.FONT_REGULAR);
         cbArea.setBackground(Color.WHITE);
+
+        JComboBox<Member> cbMember = new JComboBox<>();
+        if (!session.isOwnOnly(MainView.CARD_PTSESSION)) {
+            for (Member m : DbAction.fetch(view, memberDao::findAll, List.<Member>of())) cbMember.addItem(m);
+        } else if (isEdit) {
+            // HLV không có quyền xem danh sách hội viên, chỉ hiện hội viên của buổi này
+            Member current = new Member();
+            current.setMemberId(sesToEdit.getMemberId());
+            current.setFullName(sesToEdit.getMemberName());
+            cbMember.addItem(current);
+        }
+        cbMember.setFont(UITheme.FONT_REGULAR);
+        cbMember.setBackground(Color.WHITE);
 
         JComboBox<String> cbStatus = new JComboBox<>(new String[]{"Đã đặt", "Đang diễn ra", "Hoàn thành", "Đã hủy"});
         cbStatus.setFont(UITheme.FONT_REGULAR);
@@ -168,8 +199,8 @@ public class PTSessionController {
         if (isEdit) {
             txtId.setText(sesToEdit.getSessionId());
             txtId.setEditable(false);
-            txtStart.setText(sesToEdit.getStartTime());
-            txtEnd.setText(sesToEdit.getEndTime());
+            txtStart.setText(Formats.text(sesToEdit.getStartTime()));
+            txtEnd.setText(Formats.text(sesToEdit.getEndTime()));
             for (int i = 0; i < cbTrainer.getItemCount(); i++) {
                 if (cbTrainer.getItemAt(i).getTrainerId().equalsIgnoreCase(sesToEdit.getTrainerId())) {
                     cbTrainer.setSelectedIndex(i);
@@ -182,9 +213,23 @@ public class PTSessionController {
                     break;
                 }
             }
+            for (int i = 0; i < cbMember.getItemCount(); i++) {
+                if (cbMember.getItemAt(i).getMemberId().equalsIgnoreCase(sesToEdit.getMemberId())) {
+                    cbMember.setSelectedIndex(i);
+                    break;
+                }
+            }
             cbStatus.setSelectedItem(sesToEdit.getStatus());
+            if (session.isOwnOnly(MainView.CARD_PTSESSION)) {
+                // HLV chỉ cập nhật trạng thái; thời gian và phân công do Lễ tân/Quản lý sắp xếp
+                txtStart.setEditable(false);
+                txtEnd.setEditable(false);
+                cbTrainer.setEnabled(false);
+                cbArea.setEnabled(false);
+                cbMember.setEnabled(false);
+            }
         } else {
-            txtId.setText("SES" + String.format("%03d", data.getPtSessions().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             LocalDateTime now = LocalDateTime.now();
             txtStart.setText(now.format(dtf));
             txtEnd.setText(now.plusHours(1).plusMinutes(30).format(dtf));
@@ -195,7 +240,8 @@ public class PTSessionController {
         addFormRow(panel, gbc, 2, "Thời gian kết thúc (*):", txtEnd);
         addFormRow(panel, gbc, 3, "Huấn luyện viên PT (*):", cbTrainer);
         addFormRow(panel, gbc, 4, "Khu vực tập (*):", cbArea);
-        addFormRow(panel, gbc, 5, "Trạng thái:", cbStatus);
+        addFormRow(panel, gbc, 5, "Hội viên (*):", cbMember);
+        addFormRow(panel, gbc, 6, "Trạng thái:", cbStatus);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);
@@ -206,14 +252,25 @@ public class PTSessionController {
 
         btnSave.addActionListener(e -> {
             String id = txtId.getText().trim();
-            String start = txtStart.getText().trim();
-            String end = txtEnd.getText().trim();
+            String startText = txtStart.getText().trim();
+            String endText = txtEnd.getText().trim();
             Trainer selTrainer = (Trainer) cbTrainer.getSelectedItem();
             Area selArea = (Area) cbArea.getSelectedItem();
+            Member selMember = (Member) cbMember.getSelectedItem();
             String status = (String) cbStatus.getSelectedItem();
 
-            if (id.isEmpty() || start.isEmpty() || end.isEmpty() || selTrainer == null || selArea == null) {
+            if (id.isEmpty() || startText.isEmpty() || endText.isEmpty() || selTrainer == null || selArea == null || selMember == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ thông tin lịch tập!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            LocalDateTime start;
+            LocalDateTime end;
+            try {
+                start = Formats.parseDateTime(startText);
+                end = Formats.parseDateTime(endText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Thời gian phải có dạng yyyy-MM-dd HH:mm!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
@@ -222,19 +279,17 @@ public class PTSessionController {
                 sesToEdit.setEndTime(end);
                 sesToEdit.setTrainerId(selTrainer.getTrainerId());
                 sesToEdit.setAreaId(selArea.getAreaId());
+                sesToEdit.setMemberId(selMember.getMemberId());
                 sesToEdit.setStatus(status);
+                if (!DbAction.run(dialog, () -> dao.update(sesToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật lịch tập PT thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findSessionById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã buổi tập đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                PTSession newSes = new PTSession(id, start, end, status, selTrainer.getTrainerId(), selArea.getAreaId());
-                data.getPtSessions().add(newSes);
+                PTSession newSes = new PTSession(id, start, end, status, selTrainer.getTrainerId(), selArea.getAreaId(), selMember.getMemberId());
+                if (!DbAction.run(dialog, () -> dao.insert(newSes))) return;
                 JOptionPane.showMessageDialog(dialog, "Đặt lịch tập PT mới thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getPtSessions());
+            loadData(fetchAll());
             dialog.dispose();
         });
 
@@ -242,7 +297,7 @@ public class PTSessionController {
         btnPanel.add(btnSave);
 
         gbc.gridx = 0;
-        gbc.gridy = 6;
+        gbc.gridy = 7;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(16, 6, 6, 6);
         panel.add(btnPanel, gbc);

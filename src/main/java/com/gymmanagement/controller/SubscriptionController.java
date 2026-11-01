@@ -1,6 +1,8 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.MemberDao;
+import com.gymmanagement.dao.PackageDao;
+import com.gymmanagement.dao.SubscriptionDao;
 import com.gymmanagement.model.Member;
 import com.gymmanagement.model.PackageModel;
 import com.gymmanagement.model.Subscription;
@@ -12,6 +14,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -19,13 +22,14 @@ import java.util.List;
  */
 public class SubscriptionController {
     private final SubscriptionView view;
-    private final SampleData data;
+    private final SubscriptionDao dao = new SubscriptionDao();
+    private final MemberDao memberDao = new MemberDao();
+    private final PackageDao packageDao = new PackageDao();
 
     public SubscriptionController(SubscriptionView view) {
         this.view = view;
-        this.data = SampleData.getInstance();
         initListeners();
-        loadData(data.getSubscriptions());
+        reload();
     }
 
     private void initListeners() {
@@ -35,7 +39,7 @@ public class SubscriptionController {
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
             view.getCbFilterStatus().setSelectedIndex(0);
-            loadData(data.getSubscriptions());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showSubscriptionDialog(null));
@@ -69,48 +73,51 @@ public class SubscriptionController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getSubscriptions().removeIf(s -> s.getSubscriptionId().equalsIgnoreCase(subId));
-                loadData(data.getSubscriptions());
+                if (!DbAction.run(view, () -> dao.delete(subId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa đăng ký thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Subscription> fetchAll() {
+        return DbAction.fetch(view, () -> {
+            dao.expireOverdue();
+            return dao.findAll();
+        }, List.of());
+    }
+
+    public void reload() {
+        handleFilter();
     }
 
     public void loadData(List<Subscription> list) {
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
         for (Subscription s : list) {
-            String memberName = getMemberName(s.getMemberId());
             model.addRow(new Object[]{
                     s.getSubscriptionId(),
                     s.getMemberId(),
-                    memberName,
+                    s.getMemberName(),
                     s.getPackageId(),
-                    s.getStartDate(),
-                    s.getEndDate(),
+                    Formats.text(s.getStartDate()),
+                    Formats.text(s.getEndDate()),
                     s.getStatus()
             });
         }
-    }
-
-    private String getMemberName(String memberId) {
-        for (Member m : data.getMembers()) {
-            if (m.getMemberId().equalsIgnoreCase(memberId)) return m.getFullName();
-        }
-        return "N/A";
     }
 
     private void handleFilter() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         String statusFilter = (String) view.getCbFilterStatus().getSelectedItem();
 
-        List<Subscription> filtered = data.getSubscriptions().stream()
+        List<Subscription> filtered = fetchAll().stream()
                 .filter(s -> {
                     boolean matchQuery = q.isEmpty()
                             || s.getSubscriptionId().toLowerCase().contains(q)
                             || s.getMemberId().toLowerCase().contains(q)
                             || s.getPackageId().toLowerCase().contains(q)
-                            || getMemberName(s.getMemberId()).toLowerCase().contains(q);
+                            || s.getMemberName().toLowerCase().contains(q);
 
                     boolean matchStatus = "Tất cả".equals(statusFilter)
                             || s.getStatus().equalsIgnoreCase(statusFilter);
@@ -123,7 +130,7 @@ public class SubscriptionController {
     }
 
     private Subscription findSubscriptionById(String id) {
-        for (Subscription s : data.getSubscriptions()) {
+        for (Subscription s : fetchAll()) {
             if (s.getSubscriptionId().equalsIgnoreCase(id)) return s;
         }
         return null;
@@ -147,12 +154,12 @@ public class SubscriptionController {
 
         JTextField txtId = UITheme.createTextField(15);
         JComboBox<Member> cbMember = new JComboBox<>();
-        for (Member m : data.getMembers()) cbMember.addItem(m);
+        for (Member m : DbAction.fetch(view, memberDao::findAll, List.<Member>of())) cbMember.addItem(m);
         cbMember.setFont(UITheme.FONT_REGULAR);
         cbMember.setBackground(Color.WHITE);
 
         JComboBox<PackageModel> cbPackage = new JComboBox<>();
-        for (PackageModel p : data.getPackages()) cbPackage.addItem(p);
+        for (PackageModel p : DbAction.fetch(view, packageDao::findAll, List.<PackageModel>of())) cbPackage.addItem(p);
         cbPackage.setFont(UITheme.FONT_REGULAR);
         cbPackage.setBackground(Color.WHITE);
 
@@ -177,11 +184,11 @@ public class SubscriptionController {
                     break;
                 }
             }
-            txtStartDate.setText(subToEdit.getStartDate());
-            txtEndDate.setText(subToEdit.getEndDate());
+            txtStartDate.setText(Formats.text(subToEdit.getStartDate()));
+            txtEndDate.setText(Formats.text(subToEdit.getEndDate()));
             cbStatus.setSelectedItem(subToEdit.getStatus());
         } else {
-            txtId.setText("SUB" + String.format("%03d", data.getSubscriptions().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             LocalDate now = LocalDate.now();
             txtStartDate.setText(now.toString());
             txtEndDate.setText(now.plusDays(30).toString());
@@ -216,12 +223,22 @@ public class SubscriptionController {
             String id = txtId.getText().trim();
             Member selMember = (Member) cbMember.getSelectedItem();
             PackageModel selPkg = (PackageModel) cbPackage.getSelectedItem();
-            String startDate = txtStartDate.getText().trim();
-            String endDate = txtEndDate.getText().trim();
+            String startText = txtStartDate.getText().trim();
+            String endText = txtEndDate.getText().trim();
             String status = (String) cbStatus.getSelectedItem();
 
-            if (id.isEmpty() || selMember == null || selPkg == null || startDate.isEmpty() || endDate.isEmpty()) {
+            if (id.isEmpty() || selMember == null || selPkg == null || startText.isEmpty() || endText.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ thông tin đăng ký!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            LocalDate startDate;
+            LocalDate endDate;
+            try {
+                startDate = Formats.parseDate(startText);
+                endDate = Formats.parseDate(endText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Ngày phải có dạng yyyy-MM-dd và là ngày có thật!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
@@ -231,18 +248,15 @@ public class SubscriptionController {
                 subToEdit.setStartDate(startDate);
                 subToEdit.setEndDate(endDate);
                 subToEdit.setStatus(status);
+                if (!DbAction.run(dialog, () -> dao.update(subToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật đăng ký thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findSubscriptionById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã đăng ký đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
                 Subscription newSub = new Subscription(id, startDate, endDate, status, selMember.getMemberId(), selPkg.getPackageId());
-                data.getSubscriptions().add(newSub);
+                if (!DbAction.run(dialog, () -> dao.insert(newSub))) return;
                 JOptionPane.showMessageDialog(dialog, "Đăng ký gói tập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getSubscriptions());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

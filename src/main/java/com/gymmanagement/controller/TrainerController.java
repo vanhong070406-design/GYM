@@ -1,10 +1,11 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.TrainerDao;
 import com.gymmanagement.model.Trainer;
 import com.gymmanagement.view.TrainerView;
 import com.gymmanagement.view.UITheme;
 import java.awt.*;
+import java.util.Arrays;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -15,14 +16,13 @@ import javax.swing.table.DefaultTableModel;
  */
 public class TrainerController {
     private final TrainerView view;
-    private final SampleData data;
+    private final TrainerDao dao = new TrainerDao();
 
     @SuppressWarnings("OverridableMethodCallInConstructor")
     public TrainerController(TrainerView view) {
         this.view = view;
-        this.data = SampleData.getInstance();
         initListeners();
-        loadData(data.getTrainers());
+        reload();
     }
 
     private void initListeners() {
@@ -31,7 +31,7 @@ public class TrainerController {
 
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getTrainers());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showTrainerDialog(null));
@@ -67,11 +67,28 @@ public class TrainerController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getTrainers().removeIf(t -> t.getTrainerId().equalsIgnoreCase(trId));
-                loadData(data.getTrainers());
+                if (!DbAction.run(view, () -> dao.delete(trId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa huấn luyện viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Trainer> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleSearch();
+    }
+
+    /** Tách chuỗi nhập "Yoga, Pilates & Giảm mỡ" thành từng chuyên môn, bỏ trùng. */
+    private static List<String> parseSpecialties(String text) {
+        return Arrays.stream(text.split("[,;&|]"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .toList();
     }
 
     public void loadData(List<Trainer> list) {
@@ -82,8 +99,8 @@ public class TrainerController {
                     t.getTrainerId(),
                     t.getFullName(),
                     t.getPhone(),
-                    t.getExperience(),
-                    t.getSpecialty()
+                    t.getExperienceYears() + " năm",
+                    String.join(", ", t.getSpecialties())
             });
         }
     }
@@ -91,14 +108,14 @@ public class TrainerController {
     private void handleSearch() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         if (q.isEmpty()) {
-            loadData(data.getTrainers());
+            loadData(fetchAll());
             return;
         }
 
-        List<Trainer> filtered = data.getTrainers().stream()
+        List<Trainer> filtered = fetchAll().stream()
                 .filter(t -> t.getTrainerId().toLowerCase().contains(q)
                         || t.getFullName().toLowerCase().contains(q)
-                        || t.getSpecialty().toLowerCase().contains(q)
+                        || String.join(", ", t.getSpecialties()).toLowerCase().contains(q)
                         || t.getPhone().contains(q))
                 .toList();
 
@@ -106,7 +123,7 @@ public class TrainerController {
     }
 
     private Trainer findTrainerById(String id) {
-        for (Trainer t : data.getTrainers()) {
+        for (Trainer t : fetchAll()) {
             if (t.getTrainerId().equalsIgnoreCase(id)) return t;
         }
         return null;
@@ -139,18 +156,18 @@ public class TrainerController {
             txtId.setEditable(false);
             txtName.setText(trainerToEdit.getFullName());
             txtPhone.setText(trainerToEdit.getPhone());
-            txtExp.setText(trainerToEdit.getExperience());
-            txtSpecialty.setText(trainerToEdit.getSpecialty());
+            txtExp.setText(String.valueOf(trainerToEdit.getExperienceYears()));
+            txtSpecialty.setText(String.join(", ", trainerToEdit.getSpecialties()));
         } else {
-            txtId.setText("TR" + String.format("%03d", data.getTrainers().size() + 1));
-            txtExp.setText("3 năm");
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
+            txtExp.setText("3");
         }
 
         addFormRow(panel, gbc, 0, "Mã HLV (*):", txtId);
         addFormRow(panel, gbc, 1, "Họ và tên (*):", txtName);
         addFormRow(panel, gbc, 2, "Số điện thoại (*):", txtPhone);
-        addFormRow(panel, gbc, 3, "Kinh nghiệm:", txtExp);
-        addFormRow(panel, gbc, 4, "Chuyên môn (*):", txtSpecialty);
+        addFormRow(panel, gbc, 3, "Kinh nghiệm (năm):", txtExp);
+        addFormRow(panel, gbc, 4, "Chuyên môn, cách nhau dấu phẩy (*):", txtSpecialty);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);
@@ -163,31 +180,36 @@ public class TrainerController {
             String id = txtId.getText().trim();
             String name = txtName.getText().trim();
             String phone = txtPhone.getText().trim();
-            String exp = txtExp.getText().trim();
-            String spec = txtSpecialty.getText().trim();
+            String expText = txtExp.getText().trim();
+            List<String> spec = parseSpecialties(txtSpecialty.getText());
 
             if (id.isEmpty() || name.isEmpty() || phone.isEmpty() || spec.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các thông tin bắt buộc (*)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
+            int exp;
+            try {
+                exp = expText.isEmpty() ? 0 : Integer.parseInt(expText);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(dialog, "Kinh nghiệm phải là số năm (số nguyên)!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
             if (isEdit) {
                 trainerToEdit.setFullName(name);
                 trainerToEdit.setPhone(phone);
-                trainerToEdit.setExperience(exp);
-                trainerToEdit.setSpecialty(spec);
+                trainerToEdit.setExperienceYears(exp);
+                trainerToEdit.setSpecialties(spec);
+                if (!DbAction.run(dialog, () -> dao.update(trainerToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật HLV thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findTrainerById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã HLV đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
                 Trainer newTrainer = new Trainer(id, name, phone, exp, spec);
-                data.getTrainers().add(newTrainer);
+                if (!DbAction.run(dialog, () -> dao.insert(newTrainer))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới HLV thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getTrainers());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

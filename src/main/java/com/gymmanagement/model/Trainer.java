@@ -1,40 +1,37 @@
 package com.gymmanagement.model;
 
+import java.util.List;
+
 /**
  * Model đại diện cho Huấn luyện viên (Trainer)
- * Các trường: TrainerID, FullName, Phone, Experience, Specialty
  */
 public class Trainer {
     private String trainerId;
     private String fullName;
     private String phone;
-    private String experience; // Ví dụ: "5 năm", "3 năm"
-    private String specialty;  // Ví dụ: "Thể hình & Tăng cơ", "Giảm cân & Calisthenics", "Boxing"
+    private int experienceYears;
+    private List<String> specialties;
 
     public Trainer() {}
 
-    public Trainer(String trainerId, String fullName, String phone, String experience, String specialty) {
+    public Trainer(String trainerId, String fullName, String phone, int experienceYears, List<String> specialties) {
         this.trainerId = trainerId;
         this.fullName = fullName;
         this.phone = phone;
-        this.experience = experience;
-        this.specialty = specialty;
+        this.experienceYears = experienceYears;
+        this.specialties = specialties;
     }
 
     public String getTrainerId() { return trainerId; }
     public void setTrainerId(String trainerId) { this.trainerId = trainerId; }
-
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
-
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
-
-    public String getExperience() { return experience; }
-    public void setExperience(String experience) { this.experience = experience; }
-
-    public String getSpecialty() { return specialty; }
-    public void setSpecialty(String specialty) { this.specialty = specialty; }
+    public int getExperienceYears() { return experienceYears; }
+    public void setExperienceYears(int experienceYears) { this.experienceYears = experienceYears; }
+    public List<String> getSpecialties() { return specialties; }
+    public void setSpecialties(List<String> specialties) { this.specialties = specialties; }
 
     @Override
     public String toString() {

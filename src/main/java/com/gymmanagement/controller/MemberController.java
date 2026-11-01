@@ -1,6 +1,6 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.MemberDao;
 import com.gymmanagement.model.Member;
 import com.gymmanagement.view.MemberView;
 import com.gymmanagement.view.UITheme;
@@ -15,13 +15,12 @@ import javax.swing.table.DefaultTableModel;
  */
 public class MemberController {
     private final MemberView view;
-    private final SampleData data;
+    private final MemberDao dao = new MemberDao();
 
     public MemberController(MemberView view) {
         this.view = view;
-        this.data = SampleData.getInstance();
         initListeners();
-        loadData(data.getMembers());
+        reload();
     }
 
     private void initListeners() {
@@ -32,7 +31,7 @@ public class MemberController {
         // Nút Làm mới
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getMembers());
+            loadData(fetchAll());
         });
 
         // Nút Thêm
@@ -72,11 +71,20 @@ public class MemberController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getMembers().removeIf(m -> m.getMemberId().equalsIgnoreCase(memberId));
-                loadData(data.getMembers());
+                if (!DbAction.run(view, () -> dao.delete(memberId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa hội viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Member> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    /** Nạp lại từ database, giữ nguyên từ khóa tìm kiếm đang nhập. */
+    public void reload() {
+        handleSearch();
     }
 
     public void loadData(List<Member> list) {
@@ -86,35 +94,35 @@ public class MemberController {
             model.addRow(new Object[]{
                     m.getMemberId(),
                     m.getFullName(),
-                    m.getEmail(),
+                    Formats.nullToEmpty(m.getEmail()),
                     m.getPhone(),
-                    m.getJoinDate(),
-                    m.getAddress(),
-                    m.getBirthDate(),
+                    Formats.text(m.getJoinDate()),
+                    Formats.nullToEmpty(m.getAddress()),
+                    Formats.text(m.getBirthDate()),
                     m.getGender()
             });
         }
     }
 
     private void handleSearch() {
-        String query = view.getTxtSearch().getText().trim().toLowerCase();
-        if (query.isEmpty()) {
-            loadData(data.getMembers());
+        String q = view.getTxtSearch().getText().trim().toLowerCase();
+        if (q.isEmpty()) {
+            loadData(fetchAll());
             return;
         }
 
-        List<Member> filtered = data.getMembers().stream()
-                .filter(m -> m.getMemberId().toLowerCase().contains(query)
-                        || m.getFullName().toLowerCase().contains(query)
-                        || m.getPhone().contains(query)
-                        || m.getEmail().toLowerCase().contains(query))
+        List<Member> filtered = fetchAll().stream()
+                .filter(m -> m.getMemberId().toLowerCase().contains(q)
+                        || m.getFullName().toLowerCase().contains(q)
+                        || m.getPhone().contains(q)
+                        || Formats.nullToEmpty(m.getEmail()).toLowerCase().contains(q))
                 .toList();
 
         loadData(filtered);
     }
 
     private Member findMemberById(String id) {
-        for (Member m : data.getMembers()) {
+        for (Member m : fetchAll()) {
             if (m.getMemberId().equalsIgnoreCase(id)) return m;
         }
         return null;
@@ -155,14 +163,14 @@ public class MemberController {
             txtId.setText(memberToEdit.getMemberId());
             txtId.setEditable(false);
             txtName.setText(memberToEdit.getFullName());
-            txtEmail.setText(memberToEdit.getEmail());
+            txtEmail.setText(Formats.nullToEmpty(memberToEdit.getEmail()));
             txtPhone.setText(memberToEdit.getPhone());
-            txtJoinDate.setText(memberToEdit.getJoinDate());
-            txtAddress.setText(memberToEdit.getAddress());
-            txtBirthDate.setText(memberToEdit.getBirthDate());
+            txtJoinDate.setText(Formats.text(memberToEdit.getJoinDate()));
+            txtAddress.setText(Formats.nullToEmpty(memberToEdit.getAddress()));
+            txtBirthDate.setText(Formats.text(memberToEdit.getBirthDate()));
             cbGender.setSelectedItem(memberToEdit.getGender());
         } else {
-            txtId.setText("MB" + String.format("%03d", data.getMembers().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtJoinDate.setText(java.time.LocalDate.now().toString());
             txtBirthDate.setText("2000-01-01");
         }
@@ -188,11 +196,11 @@ public class MemberController {
         btnSave.addActionListener(e -> {
             String id = txtId.getText().trim();
             String name = txtName.getText().trim();
-            String email = txtEmail.getText().trim();
+            String email = Formats.emptyToNull(txtEmail.getText().trim());
             String phone = txtPhone.getText().trim();
-            String joinDate = txtJoinDate.getText().trim();
-            String address = txtAddress.getText().trim();
-            String birthDate = txtBirthDate.getText().trim();
+            String joinDateText = txtJoinDate.getText().trim();
+            String address = Formats.emptyToNull(txtAddress.getText().trim());
+            String birthDateText = txtBirthDate.getText().trim();
             String gender = (String) cbGender.getSelectedItem();
 
             // Kiểm tra các trường bắt buộc
@@ -200,6 +208,17 @@ public class MemberController {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường bắt buộc (*): Mã, Tên, Số điện thoại!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
+
+            java.time.LocalDate parsedJoin;
+            java.time.LocalDate birthDate;
+            try {
+                parsedJoin = Formats.parseDate(joinDateText);
+                birthDate = Formats.parseDate(birthDateText);
+            } catch (java.time.format.DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Ngày phải có dạng yyyy-MM-dd và là ngày có thật!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            java.time.LocalDate joinDate = parsedJoin != null ? parsedJoin : java.time.LocalDate.now();
 
             if (isEdit) {
                 memberToEdit.setFullName(name);
@@ -209,19 +228,15 @@ public class MemberController {
                 memberToEdit.setAddress(address);
                 memberToEdit.setBirthDate(birthDate);
                 memberToEdit.setGender(gender);
+                if (!DbAction.run(dialog, () -> dao.update(memberToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật thông tin hội viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                // Kiểm tra trùng mã
-                if (findMemberById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã hội viên đã tồn tại, vui lòng chọn mã khác!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
                 Member newMember = new Member(id, name, email, phone, joinDate, address, birthDate, gender);
-                data.getMembers().add(newMember);
+                if (!DbAction.run(dialog, () -> dao.insert(newMember))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới hội viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getMembers());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

@@ -2,6 +2,7 @@ package com.gymmanagement;
 
 import com.gymmanagement.controller.LoginController;
 import com.gymmanagement.view.LoginView;
+import com.gymmanagement.view.UITheme;
 
 import javax.swing.*;
 
@@ -19,6 +20,7 @@ public class Main {
 
         // Bật khử răng cưa cho văn bản (Anti-aliasing) trên màn hình Windows
         UIManager.put("Button.rollover", false);
+        UITheme.installDefaults();
         System.setProperty("awt.useSystemAAFontSettings", "on");
         System.setProperty("swing.aatext", "true");
 

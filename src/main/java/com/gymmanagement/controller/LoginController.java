@@ -1,10 +1,10 @@
 package com.gymmanagement.controller;
 
+import com.gymmanagement.dao.DataAccessException;
+import com.gymmanagement.dao.UserAccountDao;
+import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.LoginView;
 import com.gymmanagement.view.MainView;
-
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 /**
  * Controller xử lý đăng nhập người dùng
@@ -14,16 +14,7 @@ public class LoginController {
 
     public LoginController(LoginView view) {
         this.view = view;
-        initController();
-    }
-
-    private void initController() {
-        view.getBtnLogin().addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                handleLogin();
-            }
-        });
+        view.getBtnLogin().addActionListener(e -> handleLogin());
     }
 
     private void handleLogin() {
@@ -35,17 +26,34 @@ public class LoginController {
             return;
         }
 
-        // Kiểm tra đăng nhập minh họa (admin / 123456 hoặc bất kỳ user nào trong giai đoạn UI)
-        if ("admin".equalsIgnoreCase(username) && "123456".equals(password)) {
-            view.setError(" ");
-            view.dispose(); // Đóng màn hình đăng nhập
-
-            // Khởi tạo MainView và MainController
-            MainView mainView = new MainView();
-            new MainController(mainView);
-            mainView.setVisible(true);
-        } else {
-            view.setError("Tên đăng nhập hoặc mật khẩu không chính xác!");
+        UserSession session;
+        try {
+            session = new UserAccountDao().login(username, password);
+        } catch (DataAccessException e) {
+            // Lỗi kết nối database phải khác với sai mật khẩu
+            view.setError("<html>" + e.getMessage() + "</html>");
+            return;
         }
+
+        if (session == null) {
+            view.setError("Tên đăng nhập hoặc mật khẩu không chính xác!");
+            return;
+        }
+        if (!session.hasAnyPermission()) {
+            view.setError("Tài khoản chưa được cấp quyền. Vui lòng liên hệ Quản lý.");
+            return;
+        }
+        if (session.isMustChangePassword() && !PasswordDialog.show(view, session.getUsername(), true)) {
+            view.clearPassword();
+            view.setError("Bạn cần đổi mật khẩu tạm để đăng nhập.");
+            return;
+        }
+
+        view.setError(" ");
+        view.dispose(); // Đóng màn hình đăng nhập
+
+        MainView mainView = new MainView();
+        new MainController(mainView, session);
+        mainView.setVisible(true);
     }
 }

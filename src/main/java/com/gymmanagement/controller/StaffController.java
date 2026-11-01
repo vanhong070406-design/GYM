@@ -1,7 +1,12 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.PositionDao;
+import com.gymmanagement.dao.ShiftDao;
+import com.gymmanagement.dao.StaffDao;
+import com.gymmanagement.model.Position;
+import com.gymmanagement.model.Shift;
 import com.gymmanagement.model.Staff;
+import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.StaffView;
 import com.gymmanagement.view.UITheme;
 
@@ -9,7 +14,9 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -17,13 +24,16 @@ import java.util.List;
  */
 public class StaffController {
     private final StaffView view;
-    private final SampleData data;
+    private final UserSession session;
+    private final PositionDao positionDao = new PositionDao();
+    private final StaffDao dao = new StaffDao();
+    private final ShiftDao shiftDao = new ShiftDao();
 
-    public StaffController(StaffView view) {
+    public StaffController(StaffView view, UserSession session) {
         this.view = view;
-        this.data = SampleData.getInstance();
+        this.session = session;
         initListeners();
-        loadData(data.getStaffList());
+        reload();
     }
 
     private void initListeners() {
@@ -32,7 +42,7 @@ public class StaffController {
 
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getStaffList());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showStaffDialog(null));
@@ -60,6 +70,11 @@ public class StaffController {
             String stId = (String) view.getTableModel().getValueAt(row, 0);
             String stName = (String) view.getTableModel().getValueAt(row, 1);
 
+            if (stId.equalsIgnoreCase(session.getStaffId())) {
+                JOptionPane.showMessageDialog(view, "Không thể xóa nhân viên đang đăng nhập!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             int confirm = JOptionPane.showConfirmDialog(
                     view,
                     "Bạn có chắc muốn xóa nhân viên: " + stName + " (" + stId + ") không?",
@@ -68,11 +83,19 @@ public class StaffController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getStaffList().removeIf(s -> s.getStaffId().equalsIgnoreCase(stId));
-                loadData(data.getStaffList());
+                if (!DbAction.run(view, () -> dao.delete(stId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Staff> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleSearch();
     }
 
     public void loadData(List<Staff> list) {
@@ -84,9 +107,10 @@ public class StaffController {
                     s.getFullName(),
                     s.getPhone(),
                     String.format("%,.0f", s.getSalary()),
-                    s.getShift(),
-                    s.getHireDate(),
-                    s.getManagerId()
+                    s.getShift().toString(),
+                    Formats.text(s.getHireDate()),
+                    s.getManagerId() == null ? "None" : s.getManagerId(),
+                    s.getPositionName()
             });
         }
     }
@@ -94,22 +118,23 @@ public class StaffController {
     private void handleSearch() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         if (q.isEmpty()) {
-            loadData(data.getStaffList());
+            loadData(fetchAll());
             return;
         }
 
-        List<Staff> filtered = data.getStaffList().stream()
+        List<Staff> filtered = fetchAll().stream()
                 .filter(s -> s.getStaffId().toLowerCase().contains(q)
                         || s.getFullName().toLowerCase().contains(q)
                         || s.getPhone().contains(q)
-                        || s.getShift().toLowerCase().contains(q))
+                        || s.getShift().toString().toLowerCase().contains(q)
+                        || s.getPositionName().toLowerCase().contains(q))
                 .toList();
 
         loadData(filtered);
     }
 
     private Staff findStaffById(String id) {
-        for (Staff s : data.getStaffList()) {
+        for (Staff s : fetchAll()) {
             if (s.getStaffId().equalsIgnoreCase(id)) return s;
         }
         return null;
@@ -119,7 +144,7 @@ public class StaffController {
         boolean isEdit = (staffToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa nhân viên" : "Thêm nhân viên mới", true);
-        dialog.setSize(480, 480);
+        dialog.setSize(480, 530);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -136,13 +161,15 @@ public class StaffController {
         JTextField txtPhone = UITheme.createTextField(15);
         JTextField txtSalary = UITheme.createTextField(15);
 
-        JComboBox<String> cbShift = new JComboBox<>(new String[]{
-                "Ca sáng (06:00 - 14:00)", 
-                "Ca chiều (14:00 - 22:00)", 
-                "Ca hành chính"
-        });
+        JComboBox<Shift> cbShift = new JComboBox<>();
+        for (Shift sh : DbAction.fetch(view, shiftDao::findAll, List.<Shift>of())) cbShift.addItem(sh);
         cbShift.setFont(UITheme.FONT_REGULAR);
         cbShift.setBackground(Color.WHITE);
+
+        JComboBox<Position> cbPosition = new JComboBox<>();
+        for (Position p : DbAction.fetch(view, positionDao::findStaffPositions, List.<Position>of())) cbPosition.addItem(p);
+        cbPosition.setFont(UITheme.FONT_REGULAR);
+        cbPosition.setBackground(Color.WHITE);
 
         JTextField txtHireDate = UITheme.createTextField(15);
         JTextField txtManagerId = UITheme.createTextField(15);
@@ -152,12 +179,25 @@ public class StaffController {
             txtId.setEditable(false);
             txtName.setText(staffToEdit.getFullName());
             txtPhone.setText(staffToEdit.getPhone());
-            txtSalary.setText(String.valueOf((long) staffToEdit.getSalary()));
-            cbShift.setSelectedItem(staffToEdit.getShift());
-            txtHireDate.setText(staffToEdit.getHireDate());
-            txtManagerId.setText(staffToEdit.getManagerId());
+            txtSalary.setText(staffToEdit.getSalary().toPlainString());
+            for (int i = 0; i < cbShift.getItemCount(); i++) {
+                if (cbShift.getItemAt(i).getShiftId().equals(staffToEdit.getShiftId())) {
+                    cbShift.setSelectedIndex(i);
+                    break;
+                }
+            }
+            txtHireDate.setText(Formats.text(staffToEdit.getHireDate()));
+            txtManagerId.setText(Formats.nullToEmpty(staffToEdit.getManagerId()));
+            for (int i = 0; i < cbPosition.getItemCount(); i++) {
+                if (cbPosition.getItemAt(i).getPositionId().equals(staffToEdit.getPositionId())) {
+                    cbPosition.setSelectedIndex(i);
+                    break;
+                }
+            }
+            // Quản lý không tự đổi chức vụ của mình, tránh mất quyền quản trị
+            cbPosition.setEnabled(!staffToEdit.getStaffId().equals(session.getStaffId()));
         } else {
-            txtId.setText("ST" + String.format("%03d", data.getStaffList().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtSalary.setText("8000000");
             txtHireDate.setText(LocalDate.now().toString());
             txtManagerId.setText("ST001");
@@ -170,6 +210,7 @@ public class StaffController {
         addFormRow(panel, gbc, 4, "Ca làm việc (*):", cbShift);
         addFormRow(panel, gbc, 5, "Ngày tuyển dụng (*):", txtHireDate);
         addFormRow(panel, gbc, 6, "Mã quản lý:", txtManagerId);
+        addFormRow(panel, gbc, 7, "Chức vụ (*):", cbPosition);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);
@@ -183,18 +224,28 @@ public class StaffController {
             String name = txtName.getText().trim();
             String phone = txtPhone.getText().trim();
             String salaryStr = txtSalary.getText().trim();
-            String shift = (String) cbShift.getSelectedItem();
-            String hireDate = txtHireDate.getText().trim();
-            String managerId = txtManagerId.getText().trim();
+            Shift shift = (Shift) cbShift.getSelectedItem();
+            Position position = (Position) cbPosition.getSelectedItem();
+            String hireDateText = txtHireDate.getText().trim();
+            String managerText = txtManagerId.getText().trim();
+            String managerId = managerText.isEmpty() || managerText.equalsIgnoreCase("None") ? null : managerText;
 
-            if (id.isEmpty() || name.isEmpty() || phone.isEmpty() || salaryStr.isEmpty() || hireDate.isEmpty()) {
+            if (id.isEmpty() || name.isEmpty() || phone.isEmpty() || salaryStr.isEmpty() || hireDateText.isEmpty() || shift == null || position == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường bắt buộc (*)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            double salary;
+            LocalDate hireDate;
             try {
-                salary = Double.parseDouble(salaryStr);
+                hireDate = Formats.parseDate(hireDateText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Ngày phải có dạng yyyy-MM-dd và là ngày có thật!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            BigDecimal salary;
+            try {
+                salary = new BigDecimal(salaryStr);
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(dialog, "Mức lương phải là số hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -204,21 +255,19 @@ public class StaffController {
                 staffToEdit.setFullName(name);
                 staffToEdit.setPhone(phone);
                 staffToEdit.setSalary(salary);
-                staffToEdit.setShift(shift);
+                staffToEdit.setShiftId(shift.getShiftId());
                 staffToEdit.setHireDate(hireDate);
                 staffToEdit.setManagerId(managerId);
+                staffToEdit.setPositionId(position.getPositionId());
+                if (!DbAction.run(dialog, () -> dao.update(staffToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findStaffById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã nhân viên đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-                Staff newStaff = new Staff(id, name, phone, salary, shift, hireDate, managerId.isEmpty() ? "None" : managerId);
-                data.getStaffList().add(newStaff);
+                Staff newStaff = new Staff(id, name, phone, salary, shift.getShiftId(), hireDate, managerId, position.getPositionId());
+                if (!DbAction.run(dialog, () -> dao.insert(newStaff))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getStaffList());
+            loadData(fetchAll());
             dialog.dispose();
         });
 
@@ -226,7 +275,7 @@ public class StaffController {
         btnPanel.add(btnSave);
 
         gbc.gridx = 0;
-        gbc.gridy = 7;
+        gbc.gridy = 8;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(16, 6, 6, 6);
         panel.add(btnPanel, gbc);

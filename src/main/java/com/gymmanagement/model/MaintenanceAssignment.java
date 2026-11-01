@@ -1,20 +1,23 @@
 package com.gymmanagement.model;
 
+import java.time.LocalDate;
+
 /**
- * Model đại diện cho Quản lý bảo trì thiết bị (MaintenanceAssignment)
- * Các trường chính: StaffID, EquipmentID
- * Các trường bổ sung: MaintenanceDate, Note, Status
+ * Model đại diện cho Phân công bảo trì; khóa chính (staffId, equipmentId, maintenanceDate)
+ * staffName, equipmentName: chỉ đọc, lấy từ JOIN để hiển thị, không lưu trong bảng này
  */
 public class MaintenanceAssignment {
     private String staffId;
     private String equipmentId;
-    private String maintenanceDate;
+    private LocalDate maintenanceDate;
     private String note;
-    private String status; // "Đã hoàn thành", "Đang bảo trì", "Chờ linh kiện"
+    private String status;
+    private String staffName;
+    private String equipmentName;
 
     public MaintenanceAssignment() {}
 
-    public MaintenanceAssignment(String staffId, String equipmentId, String maintenanceDate, String note, String status) {
+    public MaintenanceAssignment(String staffId, String equipmentId, LocalDate maintenanceDate, String note, String status) {
         this.staffId = staffId;
         this.equipmentId = equipmentId;
         this.maintenanceDate = maintenanceDate;
@@ -24,18 +27,18 @@ public class MaintenanceAssignment {
 
     public String getStaffId() { return staffId; }
     public void setStaffId(String staffId) { this.staffId = staffId; }
-
     public String getEquipmentId() { return equipmentId; }
     public void setEquipmentId(String equipmentId) { this.equipmentId = equipmentId; }
-
-    public String getMaintenanceDate() { return maintenanceDate; }
-    public void setMaintenanceDate(String maintenanceDate) { this.maintenanceDate = maintenanceDate; }
-
+    public LocalDate getMaintenanceDate() { return maintenanceDate; }
+    public void setMaintenanceDate(LocalDate maintenanceDate) { this.maintenanceDate = maintenanceDate; }
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
-
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getStaffName() { return staffName; }
+    public void setStaffName(String staffName) { this.staffName = staffName; }
+    public String getEquipmentName() { return equipmentName; }
+    public void setEquipmentName(String equipmentName) { this.equipmentName = equipmentName; }
 
     @Override
     public String toString() {

@@ -1,9 +1,14 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.EquipmentDao;
+import com.gymmanagement.dao.MaintenanceDao;
+import com.gymmanagement.dao.StaffDao;
 import com.gymmanagement.model.Equipment;
 import com.gymmanagement.model.MaintenanceAssignment;
+import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Staff;
+import com.gymmanagement.model.UserSession;
+import com.gymmanagement.view.MainView;
 import com.gymmanagement.view.MaintenanceView;
 import com.gymmanagement.view.UITheme;
 
@@ -12,6 +17,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -19,13 +25,17 @@ import java.util.List;
  */
 public class MaintenanceController {
     private final MaintenanceView view;
-    private final SampleData data;
+    private final UserSession session;
+    private List<MaintenanceAssignment> shown = List.of();
+    private final MaintenanceDao dao = new MaintenanceDao();
+    private final StaffDao staffDao = new StaffDao();
+    private final EquipmentDao equipmentDao = new EquipmentDao();
 
-    public MaintenanceController(MaintenanceView view) {
+    public MaintenanceController(MaintenanceView view, UserSession session) {
         this.view = view;
-        this.data = SampleData.getInstance();
+        this.session = session;
         initListeners();
-        loadData(data.getMaintenanceAssignments());
+        reload();
     }
 
     private void initListeners() {
@@ -34,10 +44,15 @@ public class MaintenanceController {
 
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getMaintenanceAssignments());
+            loadData(fetchAll());
         });
 
-        view.getBtnAdd().addActionListener(e -> showMaintenanceDialog());
+        view.getBtnAdd().addActionListener(e -> showMaintenanceDialog(null));
+
+        view.getBtnEdit().addActionListener(e -> {
+            MaintenanceAssignment selected = selectedRow("Vui lòng chọn một dòng phân công để cập nhật!");
+            if (selected != null) showMaintenanceDialog(selected);
+        });
 
         view.getBtnDelete().addActionListener(e -> {
             int row = view.getTable().getSelectedRow();
@@ -48,75 +63,83 @@ public class MaintenanceController {
 
             String stId = (String) view.getTableModel().getValueAt(row, 0);
             String eqId = (String) view.getTableModel().getValueAt(row, 2);
+            LocalDate maintenanceDate = LocalDate.parse((String) view.getTableModel().getValueAt(row, 4));
 
             int confirm = JOptionPane.showConfirmDialog(
                     view,
-                    "Bạn có chắc muốn xóa phân công NV " + stId + " bảo trì thiết bị " + eqId + " không?",
+                    "Bạn có chắc muốn xóa phân công NV " + stId + " bảo trì thiết bị " + eqId + " ngày " + maintenanceDate + " không?",
                     "Xác nhận xóa",
                     JOptionPane.YES_NO_OPTION
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getMaintenanceAssignments().removeIf(m -> 
-                        m.getStaffId().equalsIgnoreCase(stId) && m.getEquipmentId().equalsIgnoreCase(eqId));
-                loadData(data.getMaintenanceAssignments());
+                if (!DbAction.run(view, () -> dao.delete(stId, eqId, maintenanceDate))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa phân công thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
     }
 
+    private List<MaintenanceAssignment> fetchAll() {
+        List<MaintenanceAssignment> all = DbAction.fetch(view, dao::findAll, List.of());
+        if (!session.isOwnOnly(MainView.CARD_MAINTENANCE)) return all;
+        // Kỹ thuật viên chỉ thấy phiếu được giao cho mình
+        return all.stream().filter(m -> m.getStaffId().equals(session.getStaffId())).toList();
+    }
+
+    public void reload() {
+        handleSearch();
+    }
+
+    /** Dòng đang chọn trên bảng, hoặc null kèm thông báo nếu chưa chọn. */
+    private MaintenanceAssignment selectedRow(String message) {
+        int row = view.getTable().getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(view, message, "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        return shown.get(view.getTable().convertRowIndexToModel(row));
+    }
+
     public void loadData(List<MaintenanceAssignment> list) {
+        shown = list;
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
         for (MaintenanceAssignment m : list) {
-            String staffName = getStaffName(m.getStaffId());
-            String eqName = getEquipmentName(m.getEquipmentId());
             model.addRow(new Object[]{
                     m.getStaffId(),
-                    staffName,
+                    m.getStaffName(),
                     m.getEquipmentId(),
-                    eqName,
-                    m.getMaintenanceDate(),
+                    m.getEquipmentName(),
+                    Formats.text(m.getMaintenanceDate()),
                     m.getNote(),
                     m.getStatus()
             });
         }
     }
 
-    private String getStaffName(String id) {
-        for (Staff s : data.getStaffList()) {
-            if (s.getStaffId().equalsIgnoreCase(id)) return s.getFullName();
-        }
-        return "N/A";
-    }
-
-    private String getEquipmentName(String id) {
-        for (Equipment e : data.getEquipmentList()) {
-            if (e.getEquipmentId().equalsIgnoreCase(id)) return e.getEquipmentName();
-        }
-        return "N/A";
-    }
-
     private void handleSearch() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         if (q.isEmpty()) {
-            loadData(data.getMaintenanceAssignments());
+            loadData(fetchAll());
             return;
         }
 
-        List<MaintenanceAssignment> filtered = data.getMaintenanceAssignments().stream()
+        List<MaintenanceAssignment> filtered = fetchAll().stream()
                 .filter(m -> m.getStaffId().toLowerCase().contains(q)
                         || m.getEquipmentId().toLowerCase().contains(q)
-                        || getStaffName(m.getStaffId()).toLowerCase().contains(q)
-                        || getEquipmentName(m.getEquipmentId()).toLowerCase().contains(q)
+                        || m.getStaffName().toLowerCase().contains(q)
+                        || m.getEquipmentName().toLowerCase().contains(q)
                         || m.getNote().toLowerCase().contains(q))
                 .toList();
 
         loadData(filtered);
     }
 
-    private void showMaintenanceDialog() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), "Phân công bảo trì thiết bị mới", true);
+    private void showMaintenanceDialog(MaintenanceAssignment toEdit) {
+        boolean isEdit = toEdit != null;
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
+                isEdit ? "Cập nhật phiếu bảo trì" : "Phân công bảo trì thiết bị mới", true);
         dialog.setSize(480, 420);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
@@ -130,12 +153,12 @@ public class MaintenanceController {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         JComboBox<Staff> cbStaff = new JComboBox<>();
-        for (Staff s : data.getStaffList()) cbStaff.addItem(s);
+        for (Staff s : DbAction.fetch(view, isEdit ? staffDao::findAll : () -> staffDao.findByPosition(Position.TECHNICIAN), List.<Staff>of())) cbStaff.addItem(s);
         cbStaff.setFont(UITheme.FONT_REGULAR);
         cbStaff.setBackground(Color.WHITE);
 
         JComboBox<Equipment> cbEquipment = new JComboBox<>();
-        for (Equipment eq : data.getEquipmentList()) cbEquipment.addItem(eq);
+        for (Equipment eq : DbAction.fetch(view, equipmentDao::findAll, List.<Equipment>of())) cbEquipment.addItem(eq);
         cbEquipment.setFont(UITheme.FONT_REGULAR);
         cbEquipment.setBackground(Color.WHITE);
 
@@ -148,6 +171,22 @@ public class MaintenanceController {
         JComboBox<String> cbStatus = new JComboBox<>(new String[]{"Đang bảo trì", "Chờ linh kiện", "Đã hoàn thành"});
         cbStatus.setFont(UITheme.FONT_REGULAR);
         cbStatus.setBackground(Color.WHITE);
+
+        if (isEdit) {
+            // Nhân viên, thiết bị và ngày là khóa của phiếu nên không đổi được; muốn đổi thì xóa và phân công lại
+            for (int i = 0; i < cbStaff.getItemCount(); i++) {
+                if (cbStaff.getItemAt(i).getStaffId().equals(toEdit.getStaffId())) cbStaff.setSelectedIndex(i);
+            }
+            for (int i = 0; i < cbEquipment.getItemCount(); i++) {
+                if (cbEquipment.getItemAt(i).getEquipmentId().equals(toEdit.getEquipmentId())) cbEquipment.setSelectedIndex(i);
+            }
+            txtDate.setText(Formats.text(toEdit.getMaintenanceDate()));
+            txtNote.setText(toEdit.getNote());
+            cbStatus.setSelectedItem(toEdit.getStatus());
+            cbStaff.setEnabled(false);
+            cbEquipment.setEnabled(false);
+            txtDate.setEditable(false);
+        }
 
         addFormRow(panel, gbc, 0, "Chọn nhân viên (*):", cbStaff);
         addFormRow(panel, gbc, 1, "Chọn thiết bị (*):", cbEquipment);
@@ -165,26 +204,41 @@ public class MaintenanceController {
         btnSave.addActionListener(e -> {
             Staff selStaff = (Staff) cbStaff.getSelectedItem();
             Equipment selEq = (Equipment) cbEquipment.getSelectedItem();
-            String date = txtDate.getText().trim();
+            String dateText = txtDate.getText().trim();
             String note = txtNote.getText().trim();
             String status = (String) cbStatus.getSelectedItem();
 
-            if (selStaff == null || selEq == null || date.isEmpty() || note.isEmpty()) {
+            if (selStaff == null || selEq == null || dateText.isEmpty() || note.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ thông tin phân công!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            LocalDate date;
+            try {
+                date = Formats.parseDate(dateText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Ngày phải có dạng yyyy-MM-dd và là ngày có thật!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            if (isEdit) {
+                String previousStatus = toEdit.getStatus();
+                toEdit.setNote(note);
+                toEdit.setStatus(status);
+                if (!DbAction.run(dialog, () -> dao.update(toEdit, previousStatus))) return;
+                JOptionPane.showMessageDialog(dialog, "Cập nhật phiếu bảo trì thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                reload();
+                dialog.dispose();
                 return;
             }
 
             MaintenanceAssignment newAssign = new MaintenanceAssignment(
                     selStaff.getStaffId(), selEq.getEquipmentId(), date, note, status);
-            data.getMaintenanceAssignments().add(newAssign);
-
-            // Cập nhật trạng thái của thiết bị sang Đang bảo trì nếu phù hợp
-            if ("Đang bảo trì".equals(status)) {
-                selEq.setStatus("Đang bảo trì");
-            }
+            // DAO cập nhật luôn trạng thái thiết bị sang Đang bảo trì nếu phù hợp
+            if (!DbAction.run(dialog, () -> dao.insert(newAssign))) return;
 
             JOptionPane.showMessageDialog(dialog, "Phân công bảo trì thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            loadData(data.getMaintenanceAssignments());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

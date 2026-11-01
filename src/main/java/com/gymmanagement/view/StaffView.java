@@ -30,7 +30,6 @@ public class StaffView extends JPanel {
     private void initUI() {
         // Toolbar
         JPanel topPanel = UITheme.createCardPanel();
-        topPanel.setLayout(new BorderLayout(16, 0));
 
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         searchPanel.setOpaque(false);
@@ -61,8 +60,7 @@ public class StaffView extends JPanel {
         actionPanel.add(btnEdit);
         actionPanel.add(btnDelete);
 
-        topPanel.add(searchPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        UITheme.arrangeToolbar(topPanel, searchPanel, actionPanel);
 
         // Bảng dữ liệu
         JPanel tablePanel = UITheme.createCardPanel();
@@ -70,7 +68,7 @@ public class StaffView extends JPanel {
 
         String[] columns = {
                 "Mã Nhân Viên", "Họ và Tên", "Số Điện Thoại", 
-                "Lương Cơ Bản (VNĐ)", "Ca Làm Việc", "Ngày Tuyển Dụng", "Mã Quản Lý"
+                "Lương Cơ Bản (VNĐ)", "Ca Làm Việc", "Ngày Tuyển Dụng", "Mã Quản Lý", "Chức Vụ"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

@@ -28,11 +28,14 @@ public class MainView extends JFrame {
     public static final String CARD_EQUIPMENT = "EQUIPMENT";
     public static final String CARD_MAINTENANCE = "MAINTENANCE";
     public static final String CARD_CLEANING = "CLEANING";
+    public static final String CARD_ACCOUNT = "ACCOUNT";
 
     private CardLayout cardLayout;
     private JPanel contentContainer;
     private JLabel lblScreenTitle;
     private JButton btnLogout;
+    private JButton btnChangePassword;
+    private JLabel lblRole;
 
     // Các màn hình con
     private DashboardView dashboardView;
@@ -48,9 +51,11 @@ public class MainView extends JFrame {
     private EquipmentView equipmentView;
     private MaintenanceView maintenanceView;
     private AreaCleaningView areaCleaningView;
+    private AccountView accountView;
 
     // Lưu danh sách nút Sidebar để cập nhật giao diện khi chọn
     private final Map<String, JButton> sidebarButtons = new HashMap<>();
+    private final Map<String, Component> sidebarGaps = new HashMap<>();
 
     public MainView() {
         setTitle("Phần mềm Quản lý Phòng Gym - MVC Architecture");
@@ -93,6 +98,7 @@ public class MainView extends JFrame {
         equipmentView = new EquipmentView();
         maintenanceView = new MaintenanceView();
         areaCleaningView = new AreaCleaningView();
+        accountView = new AccountView();
 
         // Đưa các Views vào CardLayout
         contentContainer.add(dashboardView, CARD_DASHBOARD);
@@ -108,6 +114,7 @@ public class MainView extends JFrame {
         contentContainer.add(equipmentView, CARD_EQUIPMENT);
         contentContainer.add(maintenanceView, CARD_MAINTENANCE);
         contentContainer.add(areaCleaningView, CARD_CLEANING);
+        contentContainer.add(accountView, CARD_ACCOUNT);
 
         rightPanel.add(header, BorderLayout.NORTH);
         rightPanel.add(contentContainer, BorderLayout.CENTER);
@@ -131,11 +138,11 @@ public class MainView extends JFrame {
 
         JLabel lblBrand = new JLabel("GYM FITNESS PRO");
         lblBrand.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        lblBrand.setForeground(UITheme.TEXT_DARK);
+        lblBrand.setForeground(UITheme.TEXT_LIGHT);
 
         JLabel lblSub = new JLabel("Hệ Thống Quản Lý MVC");
         lblSub.setFont(UITheme.FONT_SMALL);
-        lblSub.setForeground(UITheme.TEXT_MUTED);
+        lblSub.setForeground(UITheme.SIDEBAR_TEXT_MUTED);
 
         brandPanel.add(lblBrand);
         brandPanel.add(Box.createRigidArea(new Dimension(0, 4)));
@@ -147,19 +154,20 @@ public class MainView extends JFrame {
         menuPanel.setBackground(UITheme.BG_SIDEBAR);
         menuPanel.setBorder(new EmptyBorder(4, 10, 10, 10));
 
-        addMenuItem(menuPanel, "1. Tổng quan Dashboard", CARD_DASHBOARD);
-        addMenuItem(menuPanel, "2. Quản lý Hội viên", CARD_MEMBER);
-        addMenuItem(menuPanel, "3. Quản lý Gói tập", CARD_PACKAGE);
-        addMenuItem(menuPanel, "4. Đăng ký Gói tập", CARD_SUBSCRIPTION);
-        addMenuItem(menuPanel, "5. Quản lý Thanh toán", CARD_PAYMENT);
-        addMenuItem(menuPanel, "6. Quản lý Check-in", CARD_CHECKIN);
-        addMenuItem(menuPanel, "7. Huấn luyện viên PT", CARD_TRAINER);
-        addMenuItem(menuPanel, "8. Lịch tập PT", CARD_PTSESSION);
-        addMenuItem(menuPanel, "9. Quản lý Nhân viên", CARD_STAFF);
-        addMenuItem(menuPanel, "10. Quản lý Khu vực", CARD_AREA);
-        addMenuItem(menuPanel, "11. Quản lý Thiết bị", CARD_EQUIPMENT);
-        addMenuItem(menuPanel, "12. Bảo trì Thiết bị", CARD_MAINTENANCE);
-        addMenuItem(menuPanel, "13. Phân công Vệ sinh", CARD_CLEANING);
+        addMenuItem(menuPanel, "Tổng quan Dashboard", CARD_DASHBOARD);
+        addMenuItem(menuPanel, "Quản lý Hội viên", CARD_MEMBER);
+        addMenuItem(menuPanel, "Quản lý Gói tập", CARD_PACKAGE);
+        addMenuItem(menuPanel, "Đăng ký Gói tập", CARD_SUBSCRIPTION);
+        addMenuItem(menuPanel, "Quản lý Thanh toán", CARD_PAYMENT);
+        addMenuItem(menuPanel, "Quản lý Check-in", CARD_CHECKIN);
+        addMenuItem(menuPanel, "Huấn luyện viên PT", CARD_TRAINER);
+        addMenuItem(menuPanel, "Lịch tập PT", CARD_PTSESSION);
+        addMenuItem(menuPanel, "Quản lý Nhân viên", CARD_STAFF);
+        addMenuItem(menuPanel, "Quản lý Khu vực", CARD_AREA);
+        addMenuItem(menuPanel, "Quản lý Thiết bị", CARD_EQUIPMENT);
+        addMenuItem(menuPanel, "Bảo trì Thiết bị", CARD_MAINTENANCE);
+        addMenuItem(menuPanel, "Phân công Vệ sinh", CARD_CLEANING);
+        addMenuItem(menuPanel, "Quản lý Tài khoản", CARD_ACCOUNT);
 
         JScrollPane scrollMenu = new JScrollPane(menuPanel);
         scrollMenu.setBackground(UITheme.BG_SIDEBAR);
@@ -168,19 +176,14 @@ public class MainView extends JFrame {
         scrollMenu.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
         // Footer Sidebar (Nút Đăng xuất)
-        JPanel footerPanel = new JPanel(new BorderLayout());
+        JPanel footerPanel = new JPanel(new GridLayout(2, 1, 0, 8));
         footerPanel.setBackground(UITheme.BG_SIDEBAR);
         footerPanel.setBorder(new EmptyBorder(13, 14, 14, 14));
 
-        btnLogout = new JButton("Đăng xuất hệ thống");
-        btnLogout.setFont(UITheme.FONT_BOLD);
-        btnLogout.setForeground(UITheme.DANGER);
-        btnLogout.setBackground(Color.WHITE);
-        btnLogout.setFocusPainted(false);
-        btnLogout.setRolloverEnabled(false);
-        btnLogout.setBorder(new EmptyBorder(8, 12, 8, 12));
-        btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        footerPanel.add(btnLogout, BorderLayout.CENTER);
+        btnLogout = createFooterButton("Đăng xuất hệ thống", UITheme.DANGER);
+        btnChangePassword = createFooterButton("Đổi mật khẩu", UITheme.TEXT_DARK);
+        footerPanel.add(btnChangePassword);
+        footerPanel.add(btnLogout);
 
         sidebar.add(brandPanel, BorderLayout.NORTH);
         sidebar.add(scrollMenu, BorderLayout.CENTER);
@@ -192,21 +195,26 @@ public class MainView extends JFrame {
         return sidebar;
     }
 
+    private JButton createFooterButton(String text, Color textColor) {
+        JButton btn = new JButton(text);
+        UITheme.styleButton(btn, textColor, Color.WHITE, new Color(241, 245, 249), UITheme.BORDER, null);
+        btn.setFont(UITheme.FONT_BOLD);
+        btn.setBorder(new EmptyBorder(8, 12, 8, 12));
+        return btn;
+    }
+
     private void addMenuItem(JPanel container, String text, String cardName) {
         JButton btn = new JButton(text);
-        btn.setFont(UITheme.FONT_REGULAR);
-        btn.setForeground(UITheme.TEXT_DARK);
-        btn.setBackground(UITheme.BG_SIDEBAR);
-        btn.setFocusPainted(false);
-        btn.setRolloverEnabled(false);
+        UITheme.styleSidebarButton(btn, false);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setBorder(new EmptyBorder(10, 14, 10, 14));
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(8, 14, 8, 14));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 
         sidebarButtons.put(cardName, btn);
         container.add(btn);
-        container.add(Box.createRigidArea(new Dimension(0, 4)));
+        Component gap = Box.createRigidArea(new Dimension(0, 4));
+        sidebarGaps.put(cardName, gap);
+        container.add(gap);
     }
 
     private JPanel createHeader() {
@@ -223,7 +231,7 @@ public class MainView extends JFrame {
         JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         userPanel.setOpaque(false);
 
-        JLabel lblRole = new JLabel("Quản trị viên (Admin)");
+        lblRole = new JLabel(" ");
         lblRole.setFont(UITheme.FONT_BOLD);
         lblRole.setForeground(UITheme.PRIMARY);
 
@@ -240,6 +248,17 @@ public class MainView extends JFrame {
         return header;
     }
 
+    /** Hiện tên và chức vụ người đang đăng nhập trên header. */
+    public void setCurrentUser(String text) {
+        lblRole.setText(text);
+    }
+
+    /** Ẩn mục menu của màn hình mà tài khoản không có quyền. */
+    public void hideMenuItem(String cardName) {
+        sidebarButtons.get(cardName).setVisible(false);
+        sidebarGaps.get(cardName).setVisible(false);
+    }
+
     public void showScreen(String cardName, String title) {
         cardLayout.show(contentContainer, cardName);
         lblScreenTitle.setText(title);
@@ -248,22 +267,15 @@ public class MainView extends JFrame {
 
     private void updateActiveButton(String activeCard) {
         for (Map.Entry<String, JButton> entry : sidebarButtons.entrySet()) {
-            JButton btn = entry.getValue();
-            if (entry.getKey().equals(activeCard)) {
-                btn.setBackground(UITheme.SIDEBAR_ACTIVE);
-                btn.setForeground(Color.WHITE);
-                btn.setFont(UITheme.FONT_BOLD);
-            } else {
-                btn.setBackground(UITheme.BG_SIDEBAR);
-                btn.setForeground(UITheme.TEXT_DARK);
-                btn.setFont(UITheme.FONT_REGULAR);
-            }
+            UITheme.styleSidebarButton(entry.getValue(), entry.getKey().equals(activeCard));
         }
     }
 
     // Getters
     public Map<String, JButton> getSidebarButtons() { return sidebarButtons; }
     public JButton getBtnLogout() { return btnLogout; }
+    public JButton getBtnChangePassword() { return btnChangePassword; }
+    public AccountView getAccountView() { return accountView; }
     public DashboardView getDashboardView() { return dashboardView; }
     public MemberView getMemberView() { return memberView; }
     public PackageView getPackageView() { return packageView; }

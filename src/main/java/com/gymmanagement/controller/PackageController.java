@@ -1,6 +1,6 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.PackageDao;
 import com.gymmanagement.model.PackageModel;
 import com.gymmanagement.view.PackageView;
 import com.gymmanagement.view.UITheme;
@@ -9,6 +9,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -16,13 +17,12 @@ import java.util.List;
  */
 public class PackageController {
     private final PackageView view;
-    private final SampleData data;
+    private final PackageDao dao = new PackageDao();
 
     public PackageController(PackageView view) {
         this.view = view;
-        this.data = SampleData.getInstance();
         initListeners();
-        loadData(data.getPackages());
+        reload();
     }
 
     private void initListeners() {
@@ -31,7 +31,7 @@ public class PackageController {
 
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getPackages());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showPackageDialog(null));
@@ -67,11 +67,19 @@ public class PackageController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getPackages().removeIf(p -> p.getPackageId().equalsIgnoreCase(pkgId));
-                loadData(data.getPackages());
+                if (!DbAction.run(view, () -> dao.delete(pkgId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa gói tập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<PackageModel> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleSearch();
     }
 
     public void loadData(List<PackageModel> list) {
@@ -83,7 +91,7 @@ public class PackageController {
                     p.getPackageName(),
                     String.format("%,.0f", p.getPrice()),
                     p.getDuration(),
-                    p.getDescription()
+                    Formats.nullToEmpty(p.getDescription())
             });
         }
     }
@@ -91,21 +99,21 @@ public class PackageController {
     private void handleSearch() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         if (q.isEmpty()) {
-            loadData(data.getPackages());
+            loadData(fetchAll());
             return;
         }
 
-        List<PackageModel> filtered = data.getPackages().stream()
+        List<PackageModel> filtered = fetchAll().stream()
                 .filter(p -> p.getPackageId().toLowerCase().contains(q)
                         || p.getPackageName().toLowerCase().contains(q)
-                        || p.getDescription().toLowerCase().contains(q))
+                        || Formats.nullToEmpty(p.getDescription()).toLowerCase().contains(q))
                 .toList();
 
         loadData(filtered);
     }
 
     private PackageModel findPackageById(String id) {
-        for (PackageModel p : data.getPackages()) {
+        for (PackageModel p : fetchAll()) {
             if (p.getPackageId().equalsIgnoreCase(id)) return p;
         }
         return null;
@@ -141,11 +149,11 @@ public class PackageController {
             txtId.setText(pkgToEdit.getPackageId());
             txtId.setEditable(false);
             txtName.setText(pkgToEdit.getPackageName());
-            txtPrice.setText(String.valueOf((long) pkgToEdit.getPrice()));
+            txtPrice.setText(pkgToEdit.getPrice().toPlainString());
             txtDuration.setText(String.valueOf(pkgToEdit.getDuration()));
-            txtDesc.setText(pkgToEdit.getDescription());
+            txtDesc.setText(Formats.nullToEmpty(pkgToEdit.getDescription()));
         } else {
-            txtId.setText("PK" + String.format("%02d", data.getPackages().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtPrice.setText("1000000");
             txtDuration.setText("30");
         }
@@ -168,17 +176,17 @@ public class PackageController {
             String name = txtName.getText().trim();
             String priceStr = txtPrice.getText().trim();
             String durStr = txtDuration.getText().trim();
-            String desc = txtDesc.getText().trim();
+            String desc = Formats.emptyToNull(txtDesc.getText().trim());
 
             if (id.isEmpty() || name.isEmpty() || priceStr.isEmpty() || durStr.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường bắt buộc (*)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            double price;
+            BigDecimal price;
             int duration;
             try {
-                price = Double.parseDouble(priceStr);
+                price = new BigDecimal(priceStr);
                 duration = Integer.parseInt(durStr);
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(dialog, "Giá tiền và thời lượng phải là số hợp lệ!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
@@ -190,18 +198,15 @@ public class PackageController {
                 pkgToEdit.setPrice(price);
                 pkgToEdit.setDuration(duration);
                 pkgToEdit.setDescription(desc);
+                if (!DbAction.run(dialog, () -> dao.update(pkgToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật gói tập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findPackageById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã gói tập đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
                 PackageModel newPkg = new PackageModel(id, name, price, duration, desc);
-                data.getPackages().add(newPkg);
+                if (!DbAction.run(dialog, () -> dao.insert(newPkg))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới gói tập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getPackages());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

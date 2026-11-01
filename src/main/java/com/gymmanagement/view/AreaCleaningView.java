@@ -17,6 +17,7 @@ public class AreaCleaningView extends JPanel {
     private JButton btnSearch;
     private JButton btnRefresh;
     private JButton btnAdd;
+    private JButton btnEdit;
     private JButton btnDelete;
 
     public AreaCleaningView() {
@@ -29,7 +30,6 @@ public class AreaCleaningView extends JPanel {
     private void initUI() {
         // Toolbar
         JPanel topPanel = UITheme.createCardPanel();
-        topPanel.setLayout(new BorderLayout(16, 0));
 
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         searchPanel.setOpaque(false);
@@ -53,13 +53,14 @@ public class AreaCleaningView extends JPanel {
         actionPanel.setOpaque(false);
 
         btnAdd = UITheme.createPrimaryButton("+ Phân công vệ sinh");
+        btnEdit = UITheme.createSecondaryButton("Cập nhật");
         btnDelete = UITheme.createDangerButton("Xóa phân công");
 
         actionPanel.add(btnAdd);
+        actionPanel.add(btnEdit);
         actionPanel.add(btnDelete);
 
-        topPanel.add(searchPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        UITheme.arrangeToolbar(topPanel, searchPanel, actionPanel);
 
         // Bảng dữ liệu
         JPanel tablePanel = UITheme.createCardPanel();
@@ -92,5 +93,6 @@ public class AreaCleaningView extends JPanel {
     public JButton getBtnSearch() { return btnSearch; }
     public JButton getBtnRefresh() { return btnRefresh; }
     public JButton getBtnAdd() { return btnAdd; }
+    public JButton getBtnEdit() { return btnEdit; }
     public JButton getBtnDelete() { return btnDelete; }
 }

@@ -1,6 +1,6 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.AreaDao;
 import com.gymmanagement.model.Area;
 import com.gymmanagement.view.AreaView;
 import com.gymmanagement.view.UITheme;
@@ -16,13 +16,12 @@ import java.util.List;
  */
 public class AreaController {
     private final AreaView view;
-    private final SampleData data;
+    private final AreaDao dao = new AreaDao();
 
     public AreaController(AreaView view) {
         this.view = view;
-        this.data = SampleData.getInstance();
         initListeners();
-        loadData(data.getAreas());
+        reload();
     }
 
     private void initListeners() {
@@ -31,7 +30,7 @@ public class AreaController {
 
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getAreas());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showAreaDialog(null));
@@ -67,11 +66,19 @@ public class AreaController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getAreas().removeIf(a -> a.getAreaId().equalsIgnoreCase(areaId));
-                loadData(data.getAreas());
+                if (!DbAction.run(view, () -> dao.delete(areaId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa khu vực thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Area> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleSearch();
     }
 
     public void loadData(List<Area> list) {
@@ -82,7 +89,7 @@ public class AreaController {
                     a.getAreaId(),
                     a.getAreaName(),
                     a.getFloor(),
-                    a.getDescription()
+                    Formats.nullToEmpty(a.getDescription())
             });
         }
     }
@@ -90,22 +97,22 @@ public class AreaController {
     private void handleSearch() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         if (q.isEmpty()) {
-            loadData(data.getAreas());
+            loadData(fetchAll());
             return;
         }
 
-        List<Area> filtered = data.getAreas().stream()
+        List<Area> filtered = fetchAll().stream()
                 .filter(a -> a.getAreaId().toLowerCase().contains(q)
                         || a.getAreaName().toLowerCase().contains(q)
                         || a.getFloor().toLowerCase().contains(q)
-                        || a.getDescription().toLowerCase().contains(q))
+                        || Formats.nullToEmpty(a.getDescription()).toLowerCase().contains(q))
                 .toList();
 
         loadData(filtered);
     }
 
     private Area findAreaById(String id) {
-        for (Area a : data.getAreas()) {
+        for (Area a : fetchAll()) {
             if (a.getAreaId().equalsIgnoreCase(id)) return a;
         }
         return null;
@@ -140,9 +147,9 @@ public class AreaController {
             txtId.setEditable(false);
             txtName.setText(areaToEdit.getAreaName());
             cbFloor.setSelectedItem(areaToEdit.getFloor());
-            txtDesc.setText(areaToEdit.getDescription());
+            txtDesc.setText(Formats.nullToEmpty(areaToEdit.getDescription()));
         } else {
-            txtId.setText("AR" + String.format("%02d", data.getAreas().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
         }
 
         addFormRow(panel, gbc, 0, "Mã khu vực (*):", txtId);
@@ -161,7 +168,7 @@ public class AreaController {
             String id = txtId.getText().trim();
             String name = txtName.getText().trim();
             String floor = (String) cbFloor.getSelectedItem();
-            String desc = txtDesc.getText().trim();
+            String desc = Formats.emptyToNull(txtDesc.getText().trim());
 
             if (id.isEmpty() || name.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập mã và tên khu vực!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
@@ -172,18 +179,15 @@ public class AreaController {
                 areaToEdit.setAreaName(name);
                 areaToEdit.setFloor(floor);
                 areaToEdit.setDescription(desc);
+                if (!DbAction.run(dialog, () -> dao.update(areaToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật khu vực thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findAreaById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã khu vực đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
                 Area newArea = new Area(id, name, floor, desc);
-                data.getAreas().add(newArea);
+                if (!DbAction.run(dialog, () -> dao.insert(newArea))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới khu vực thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getAreas());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

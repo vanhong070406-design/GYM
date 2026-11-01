@@ -1,6 +1,7 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.AreaDao;
+import com.gymmanagement.dao.EquipmentDao;
 import com.gymmanagement.model.Area;
 import com.gymmanagement.model.Equipment;
 import com.gymmanagement.view.EquipmentView;
@@ -10,7 +11,9 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -18,13 +21,13 @@ import java.util.List;
  */
 public class EquipmentController {
     private final EquipmentView view;
-    private final SampleData data;
+    private final EquipmentDao dao = new EquipmentDao();
+    private final AreaDao areaDao = new AreaDao();
 
     public EquipmentController(EquipmentView view) {
         this.view = view;
-        this.data = SampleData.getInstance();
         initListeners();
-        loadData(data.getEquipmentList());
+        reload();
     }
 
     private void initListeners() {
@@ -34,7 +37,7 @@ public class EquipmentController {
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
             view.getCbFilterStatus().setSelectedIndex(0);
-            loadData(data.getEquipmentList());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showEquipmentDialog(null));
@@ -70,11 +73,19 @@ public class EquipmentController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getEquipmentList().removeIf(e1 -> e1.getEquipmentId().equalsIgnoreCase(eqId));
-                loadData(data.getEquipmentList());
+                if (!DbAction.run(view, () -> dao.delete(eqId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Equipment> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleFilter();
     }
 
     public void loadData(List<Equipment> list) {
@@ -85,7 +96,7 @@ public class EquipmentController {
                     eq.getEquipmentId(),
                     eq.getEquipmentName(),
                     String.format("%,.0f", eq.getValue()),
-                    eq.getPurchaseDate(),
+                    Formats.text(eq.getPurchaseDate()),
                     eq.getStatus(),
                     eq.getAreaId()
             });
@@ -96,7 +107,7 @@ public class EquipmentController {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         String statusFilter = (String) view.getCbFilterStatus().getSelectedItem();
 
-        List<Equipment> filtered = data.getEquipmentList().stream()
+        List<Equipment> filtered = fetchAll().stream()
                 .filter(eq -> {
                     boolean matchQ = q.isEmpty()
                             || eq.getEquipmentId().toLowerCase().contains(q)
@@ -114,7 +125,7 @@ public class EquipmentController {
     }
 
     private Equipment findEquipmentById(String id) {
-        for (Equipment eq : data.getEquipmentList()) {
+        for (Equipment eq : fetchAll()) {
             if (eq.getEquipmentId().equalsIgnoreCase(id)) return eq;
         }
         return null;
@@ -146,7 +157,7 @@ public class EquipmentController {
         cbStatus.setBackground(Color.WHITE);
 
         JComboBox<Area> cbArea = new JComboBox<>();
-        for (Area a : data.getAreas()) cbArea.addItem(a);
+        for (Area a : DbAction.fetch(view, areaDao::findAll, List.<Area>of())) cbArea.addItem(a);
         cbArea.setFont(UITheme.FONT_REGULAR);
         cbArea.setBackground(Color.WHITE);
 
@@ -154,8 +165,8 @@ public class EquipmentController {
             txtId.setText(eqToEdit.getEquipmentId());
             txtId.setEditable(false);
             txtName.setText(eqToEdit.getEquipmentName());
-            txtValue.setText(String.valueOf((long) eqToEdit.getValue()));
-            txtPurchaseDate.setText(eqToEdit.getPurchaseDate());
+            txtValue.setText(eqToEdit.getValue().toPlainString());
+            txtPurchaseDate.setText(Formats.text(eqToEdit.getPurchaseDate()));
             cbStatus.setSelectedItem(eqToEdit.getStatus());
             for (int i = 0; i < cbArea.getItemCount(); i++) {
                 if (cbArea.getItemAt(i).getAreaId().equalsIgnoreCase(eqToEdit.getAreaId())) {
@@ -164,7 +175,7 @@ public class EquipmentController {
                 }
             }
         } else {
-            txtId.setText("EQ" + String.format("%02d", data.getEquipmentList().size() + 1));
+            txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtValue.setText("25000000");
             txtPurchaseDate.setText(LocalDate.now().toString());
         }
@@ -187,18 +198,26 @@ public class EquipmentController {
             String id = txtId.getText().trim();
             String name = txtName.getText().trim();
             String valStr = txtValue.getText().trim();
-            String pDate = txtPurchaseDate.getText().trim();
+            String pDateText = txtPurchaseDate.getText().trim();
             String status = (String) cbStatus.getSelectedItem();
             Area selArea = (Area) cbArea.getSelectedItem();
 
-            if (id.isEmpty() || name.isEmpty() || valStr.isEmpty() || pDate.isEmpty() || selArea == null) {
+            if (id.isEmpty() || name.isEmpty() || valStr.isEmpty() || pDateText.isEmpty() || selArea == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ thông tin thiết bị!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            double val;
+            LocalDate pDate;
             try {
-                val = Double.parseDouble(valStr);
+                pDate = Formats.parseDate(pDateText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Ngày phải có dạng yyyy-MM-dd và là ngày có thật!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            BigDecimal val;
+            try {
+                val = new BigDecimal(valStr);
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(dialog, "Giá trị thiết bị phải là số hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -210,18 +229,15 @@ public class EquipmentController {
                 eqToEdit.setPurchaseDate(pDate);
                 eqToEdit.setStatus(status);
                 eqToEdit.setAreaId(selArea.getAreaId());
+                if (!DbAction.run(dialog, () -> dao.update(eqToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                if (findEquipmentById(id) != null) {
-                    JOptionPane.showMessageDialog(dialog, "Mã thiết bị đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
                 Equipment newEq = new Equipment(id, name, val, pDate, status, selArea.getAreaId());
-                data.getEquipmentList().add(newEq);
+                if (!DbAction.run(dialog, () -> dao.insert(newEq))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(data.getEquipmentList());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

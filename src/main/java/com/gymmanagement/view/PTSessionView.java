@@ -31,7 +31,6 @@ public class PTSessionView extends JPanel {
     private void initUI() {
         // Toolbar
         JPanel topPanel = UITheme.createCardPanel();
-        topPanel.setLayout(new BorderLayout(16, 0));
 
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         filterPanel.setOpaque(false);
@@ -72,8 +71,7 @@ public class PTSessionView extends JPanel {
         actionPanel.add(btnEdit);
         actionPanel.add(btnDelete);
 
-        topPanel.add(filterPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        UITheme.arrangeToolbar(topPanel, filterPanel, actionPanel);
 
         // Bảng dữ liệu
         JPanel tablePanel = UITheme.createCardPanel();
@@ -81,7 +79,7 @@ public class PTSessionView extends JPanel {
 
         String[] columns = {
                 "Mã Buổi Tập", "Thời Gian Bắt Đầu", "Thời Gian Kết Thúc", 
-                "Trạng Thái", "Mã HLV (PT)", "Tên HLV", "Mã Khu Vực Tập"
+                "Trạng Thái", "Mã HLV (PT)", "Tên HLV", "Mã Khu Vực Tập", "Mã Hội Viên", "Tên Hội Viên"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

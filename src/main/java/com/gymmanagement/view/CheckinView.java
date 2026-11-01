@@ -30,7 +30,6 @@ public class CheckinView extends JPanel {
     private void initUI() {
         // Toolbar
         JPanel topPanel = UITheme.createCardPanel();
-        topPanel.setLayout(new BorderLayout(16, 0));
 
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         searchPanel.setOpaque(false);
@@ -61,8 +60,7 @@ public class CheckinView extends JPanel {
         actionPanel.add(btnCheckout);
         actionPanel.add(btnDelete);
 
-        topPanel.add(searchPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        UITheme.arrangeToolbar(topPanel, searchPanel, actionPanel);
 
         // Bảng dữ liệu
         JPanel tablePanel = UITheme.createCardPanel();

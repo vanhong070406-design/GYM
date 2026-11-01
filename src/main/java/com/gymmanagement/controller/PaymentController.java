@@ -1,8 +1,12 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.PaymentDao;
+import com.gymmanagement.dao.StaffDao;
+import com.gymmanagement.dao.SubscriptionDao;
 import com.gymmanagement.model.Payment;
+import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Staff;
+import com.gymmanagement.model.UserSession;
 import com.gymmanagement.model.Subscription;
 import com.gymmanagement.view.PaymentView;
 import com.gymmanagement.view.UITheme;
@@ -11,7 +15,9 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -19,13 +25,16 @@ import java.util.List;
  */
 public class PaymentController {
     private final PaymentView view;
-    private final SampleData data;
+    private final UserSession session;
+    private final PaymentDao dao = new PaymentDao();
+    private final SubscriptionDao subscriptionDao = new SubscriptionDao();
+    private final StaffDao staffDao = new StaffDao();
 
-    public PaymentController(PaymentView view) {
+    public PaymentController(PaymentView view, UserSession session) {
         this.view = view;
-        this.data = SampleData.getInstance();
+        this.session = session;
         initListeners();
-        loadData(data.getPayments());
+        reload();
     }
 
     private void initListeners() {
@@ -35,7 +44,7 @@ public class PaymentController {
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
             view.getCbFilterMethod().setSelectedIndex(0);
-            loadData(data.getPayments());
+            loadData(fetchAll());
         });
 
         view.getBtnAdd().addActionListener(e -> showPaymentDialog());
@@ -56,11 +65,19 @@ public class PaymentController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getPayments().removeIf(p -> p.getPaymentId().equalsIgnoreCase(payId));
-                loadData(data.getPayments());
+                if (!DbAction.run(view, () -> dao.delete(payId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa hóa đơn thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Payment> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleFilter();
     }
 
     public void loadData(List<Payment> list) {
@@ -69,7 +86,7 @@ public class PaymentController {
         for (Payment p : list) {
             model.addRow(new Object[]{
                     p.getPaymentId(),
-                    p.getPaymentDate(),
+                    Formats.text(p.getPaymentDate()),
                     p.getPaymentMethod(),
                     String.format("%,.0f", p.getAmount()),
                     p.getSubscriptionId(),
@@ -82,7 +99,7 @@ public class PaymentController {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         String methodFilter = (String) view.getCbFilterMethod().getSelectedItem();
 
-        List<Payment> filtered = data.getPayments().stream()
+        List<Payment> filtered = fetchAll().stream()
                 .filter(p -> {
                     boolean matchQ = q.isEmpty()
                             || p.getPaymentId().toLowerCase().contains(q)
@@ -97,13 +114,6 @@ public class PaymentController {
                 .toList();
 
         loadData(filtered);
-    }
-
-    private Payment findPaymentById(String id) {
-        for (Payment p : data.getPayments()) {
-            if (p.getPaymentId().equalsIgnoreCase(id)) return p;
-        }
-        return null;
     }
 
     private void showPaymentDialog() {
@@ -121,7 +131,7 @@ public class PaymentController {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         JTextField txtId = UITheme.createTextField(15);
-        txtId.setText("PM" + String.format("%03d", data.getPayments().size() + 1));
+        txtId.setText(DbAction.fetch(view, dao::nextId, ""));
 
         JTextField txtDate = UITheme.createTextField(15);
         txtDate.setText(LocalDate.now().toString());
@@ -134,12 +144,15 @@ public class PaymentController {
         txtAmount.setText("1000000");
 
         JComboBox<Subscription> cbSub = new JComboBox<>();
-        for (Subscription s : data.getSubscriptions()) cbSub.addItem(s);
+        for (Subscription s : DbAction.fetch(view, subscriptionDao::findAll, List.<Subscription>of())) cbSub.addItem(s);
         cbSub.setFont(UITheme.FONT_REGULAR);
         cbSub.setBackground(Color.WHITE);
 
         JComboBox<Staff> cbReceptionist = new JComboBox<>();
-        for (Staff st : data.getStaffList()) cbReceptionist.addItem(st);
+        for (Staff st : DbAction.fetch(view, () -> staffDao.findByPosition(Position.RECEPTIONIST), List.<Staff>of())) {
+            cbReceptionist.addItem(st);
+            if (st.getStaffId().equals(session.getStaffId())) cbReceptionist.setSelectedItem(st); // Lễ tân đang đăng nhập
+        }
         cbReceptionist.setFont(UITheme.FONT_REGULAR);
         cbReceptionist.setBackground(Color.WHITE);
 
@@ -159,35 +172,37 @@ public class PaymentController {
 
         btnSave.addActionListener(e -> {
             String id = txtId.getText().trim();
-            String date = txtDate.getText().trim();
+            String dateText = txtDate.getText().trim();
             String method = (String) cbMethod.getSelectedItem();
             String amountStr = txtAmount.getText().trim();
             Subscription selSub = (Subscription) cbSub.getSelectedItem();
             Staff selStaff = (Staff) cbReceptionist.getSelectedItem();
 
-            if (id.isEmpty() || date.isEmpty() || amountStr.isEmpty() || selSub == null || selStaff == null) {
+            if (id.isEmpty() || dateText.isEmpty() || amountStr.isEmpty() || selSub == null || selStaff == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            double amount;
+            BigDecimal amount;
+            LocalDate date;
             try {
-                amount = Double.parseDouble(amountStr);
+                date = Formats.parseDate(dateText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Ngày phải có dạng yyyy-MM-dd và là ngày có thật!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            try {
+                amount = new BigDecimal(amountStr);
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(dialog, "Số tiền không hợp lệ!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            if (findPaymentById(id) != null) {
-                JOptionPane.showMessageDialog(dialog, "Mã hóa đơn đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
             Payment newPay = new Payment(id, date, method, amount, selSub.getSubscriptionId(), selStaff.getStaffId());
-            data.getPayments().add(newPay);
+            if (!DbAction.run(dialog, () -> dao.insert(newPay))) return;
             JOptionPane.showMessageDialog(dialog, "Lập hóa đơn thanh toán thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
 
-            loadData(data.getPayments());
+            loadData(fetchAll());
             dialog.dispose();
         });
 

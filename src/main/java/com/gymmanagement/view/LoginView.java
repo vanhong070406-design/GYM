@@ -71,7 +71,6 @@ public class LoginView extends JFrame {
         txtUsername = UITheme.createTextField(20);
         txtUsername.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         txtUsername.setAlignmentX(Component.LEFT_ALIGNMENT);
-        txtUsername.setText("admin");
 
         // Mật khẩu
         JLabel lblPass = new JLabel("Mật khẩu:");
@@ -87,7 +86,6 @@ public class LoginView extends JFrame {
         ));
         txtPassword.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         txtPassword.setAlignmentX(Component.LEFT_ALIGNMENT);
-        txtPassword.setText("123456");
 
         // Thông báo lỗi
         lblError = new JLabel(" ");
@@ -112,16 +110,8 @@ public class LoginView extends JFrame {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 14)));
         cardPanel.add(btnLogin);
 
-        // Footer gợi ý
-        JLabel lblHint = new JLabel("Tài khoản mặc định: admin | Mật khẩu: 123456");
-        lblHint.setFont(UITheme.FONT_SMALL);
-        lblHint.setForeground(UITheme.TEXT_MUTED);
-        lblHint.setHorizontalAlignment(SwingConstants.CENTER);
-        lblHint.setBorder(new EmptyBorder(16, 0, 0, 0));
-
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(cardPanel, BorderLayout.CENTER);
-        mainPanel.add(lblHint, BorderLayout.SOUTH);
 
         setContentPane(mainPanel);
         getRootPane().setDefaultButton(btnLogin);
@@ -129,6 +119,10 @@ public class LoginView extends JFrame {
 
     public String getUsername() {
         return txtUsername.getText().trim();
+    }
+
+    public void clearPassword() {
+        txtPassword.setText("");
     }
 
     public String getPassword() {

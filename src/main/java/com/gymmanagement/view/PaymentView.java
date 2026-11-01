@@ -30,7 +30,6 @@ public class PaymentView extends JPanel {
     private void initUI() {
         // Toolbar
         JPanel topPanel = UITheme.createCardPanel();
-        topPanel.setLayout(new BorderLayout(16, 0));
 
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         filterPanel.setOpaque(false);
@@ -69,8 +68,7 @@ public class PaymentView extends JPanel {
         actionPanel.add(btnAdd);
         actionPanel.add(btnDelete);
 
-        topPanel.add(filterPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        UITheme.arrangeToolbar(topPanel, filterPanel, actionPanel);
 
         // Bảng dữ liệu
         JPanel tablePanel = UITheme.createCardPanel();

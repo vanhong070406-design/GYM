@@ -1,121 +1,118 @@
 package com.gymmanagement.controller;
 
+import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.LoginView;
 import com.gymmanagement.view.MainView;
-import java.util.Map;
+import java.util.function.Supplier;
 import javax.swing.*;
 
 /**
- * Controller chính điều phối chuyển đổi màn hình và khởi tạo các controller con
+ * Controller chính: chỉ khởi tạo các màn hình tài khoản được phép thấy, ẩn các nút vượt quyền.
+ * Màn hình không có quyền không được tạo controller nên cũng không tải dữ liệu.
  */
 public class MainController {
     private final MainView view;
+    private final UserSession session;
+    private String firstScreen;
+    private Runnable firstScreenOpener;
 
-    private final DashboardController dashboardController;
-    private final MemberController memberController;
-    private final PackageController packageController;
-    private final SubscriptionController subscriptionController;
-    private final PaymentController paymentController;
-    private final CheckinController checkinController;
-    private final TrainerController trainerController;
-    private final PTSessionController ptSessionController;
-    private final StaffController staffController;
-    private final AreaController areaController;
-    private final EquipmentController equipmentController;
-    private final MaintenanceController maintenanceController;
-    private final AreaCleaningController areaCleaningController;
-
-    public MainController(MainView view) {
+    public MainController(MainView view, UserSession session) {
         this.view = view;
-
-        // Khởi tạo các sub-controllers
-        this.dashboardController = new DashboardController(view.getDashboardView());
-        this.memberController = new MemberController(view.getMemberView());
-        this.packageController = new PackageController(view.getPackageView());
-        this.subscriptionController = new SubscriptionController(view.getSubscriptionView());
-        this.paymentController = new PaymentController(view.getPaymentView());
-        this.checkinController = new CheckinController(view.getCheckinView());
-        this.trainerController = new TrainerController(view.getTrainerView());
-        this.ptSessionController = new PTSessionController(view.getPtSessionView());
-        this.staffController = new StaffController(view.getStaffView());
-        this.areaController = new AreaController(view.getAreaView());
-        this.equipmentController = new EquipmentController(view.getEquipmentView());
-        this.maintenanceController = new MaintenanceController(view.getMaintenanceView());
-        this.areaCleaningController = new AreaCleaningController(view.getAreaCleaningView());
-
-        initNavigation();
+        this.session = session;
+        view.setCurrentUser(session.getFullName() + " (" + session.getPositionName() + ")");
+        initScreens();
+        initActions();
+        if (firstScreen != null) firstScreenOpener.run();
     }
 
-    private void initNavigation() {
-        Map<String, JButton> buttons = view.getSidebarButtons();
-
-        // 1. Dashboard
-        buttons.get(MainView.CARD_DASHBOARD).addActionListener(e -> {
-            dashboardController.loadData(); // Tự động làm mới số liệu khi quay về dashboard
-            view.showScreen(MainView.CARD_DASHBOARD, "TỔNG QUAN HỆ THỐNG (DASHBOARD)");
+    private void initScreens() {
+        screen(MainView.CARD_DASHBOARD, "TỔNG QUAN HỆ THỐNG (DASHBOARD)", () -> {
+            DashboardController c = new DashboardController(view.getDashboardView());
+            return c::loadData;
         });
-
-        // 2. Member
-        buttons.get(MainView.CARD_MEMBER).addActionListener(e -> {
-            view.showScreen(MainView.CARD_MEMBER, "QUẢN LÝ HỘI VIÊN");
+        screen(MainView.CARD_MEMBER, "QUẢN LÝ HỘI VIÊN", () -> {
+            buttons(MainView.CARD_MEMBER, view.getMemberView().getBtnAdd(), view.getMemberView().getBtnEdit(), view.getMemberView().getBtnDelete());
+            return new MemberController(view.getMemberView())::reload;
         });
-
-        // 3. Package
-        buttons.get(MainView.CARD_PACKAGE).addActionListener(e -> {
-            view.showScreen(MainView.CARD_PACKAGE, "QUẢN LÝ GÓI TẬP");
+        screen(MainView.CARD_PACKAGE, "QUẢN LÝ GÓI TẬP", () -> {
+            buttons(MainView.CARD_PACKAGE, view.getPackageView().getBtnAdd(), view.getPackageView().getBtnEdit(), view.getPackageView().getBtnDelete());
+            return new PackageController(view.getPackageView())::reload;
         });
-
-        // 4. Subscription
-        buttons.get(MainView.CARD_SUBSCRIPTION).addActionListener(e -> {
-            view.showScreen(MainView.CARD_SUBSCRIPTION, "QUẢN LÝ ĐĂNG KÝ GÓI TẬP");
+        screen(MainView.CARD_SUBSCRIPTION, "QUẢN LÝ ĐĂNG KÝ GÓI TẬP", () -> {
+            buttons(MainView.CARD_SUBSCRIPTION, view.getSubscriptionView().getBtnAdd(), view.getSubscriptionView().getBtnEdit(), view.getSubscriptionView().getBtnDelete());
+            return new SubscriptionController(view.getSubscriptionView())::reload;
         });
-
-        // 5. Payment
-        buttons.get(MainView.CARD_PAYMENT).addActionListener(e -> {
-            view.showScreen(MainView.CARD_PAYMENT, "QUẢN LÝ HÓA ĐƠN & THANH TOÁN");
+        screen(MainView.CARD_PAYMENT, "QUẢN LÝ HÓA ĐƠN & THANH TOÁN", () -> {
+            buttons(MainView.CARD_PAYMENT, view.getPaymentView().getBtnAdd(), null, view.getPaymentView().getBtnDelete());
+            return new PaymentController(view.getPaymentView(), session)::reload;
         });
-
-        // 6. Check-in
-        buttons.get(MainView.CARD_CHECKIN).addActionListener(e -> {
-            view.showScreen(MainView.CARD_CHECKIN, "QUẢN LÝ LỊCH SỬ CHECK-IN / CHECK-OUT");
+        screen(MainView.CARD_CHECKIN, "QUẢN LÝ LỊCH SỬ CHECK-IN / CHECK-OUT", () -> {
+            buttons(MainView.CARD_CHECKIN, view.getCheckinView().getBtnCheckin(), view.getCheckinView().getBtnCheckout(), view.getCheckinView().getBtnDelete());
+            return new CheckinController(view.getCheckinView(), session)::reload;
         });
-
-        // 7. Trainer
-        buttons.get(MainView.CARD_TRAINER).addActionListener(e -> {
-            view.showScreen(MainView.CARD_TRAINER, "QUẢN LÝ HUẤN LUYỆN VIÊN (PT)");
+        screen(MainView.CARD_TRAINER, "QUẢN LÝ HUẤN LUYỆN VIÊN (PT)", () -> {
+            buttons(MainView.CARD_TRAINER, view.getTrainerView().getBtnAdd(), view.getTrainerView().getBtnEdit(), view.getTrainerView().getBtnDelete());
+            return new TrainerController(view.getTrainerView())::reload;
         });
-
-        // 8. PT Session
-        buttons.get(MainView.CARD_PTSESSION).addActionListener(e -> {
-            view.showScreen(MainView.CARD_PTSESSION, "QUẢN LÝ LỊCH TẬP PT");
+        screen(MainView.CARD_PTSESSION, "QUẢN LÝ LỊCH TẬP PT", () -> {
+            buttons(MainView.CARD_PTSESSION, view.getPtSessionView().getBtnAdd(), view.getPtSessionView().getBtnEdit(), view.getPtSessionView().getBtnDelete());
+            return new PTSessionController(view.getPtSessionView(), session)::reload;
         });
-
-        // 9. Staff
-        buttons.get(MainView.CARD_STAFF).addActionListener(e -> {
-            view.showScreen(MainView.CARD_STAFF, "QUẢN LÝ NHÂN VIÊN");
+        screen(MainView.CARD_STAFF, "QUẢN LÝ NHÂN VIÊN", () -> {
+            buttons(MainView.CARD_STAFF, view.getStaffView().getBtnAdd(), view.getStaffView().getBtnEdit(), view.getStaffView().getBtnDelete());
+            return new StaffController(view.getStaffView(), session)::reload;
         });
-
-        // 10. Area
-        buttons.get(MainView.CARD_AREA).addActionListener(e -> {
-            view.showScreen(MainView.CARD_AREA, "QUẢN LÝ KHU VỰC PHÒNG GYM");
+        screen(MainView.CARD_AREA, "QUẢN LÝ KHU VỰC PHÒNG GYM", () -> {
+            buttons(MainView.CARD_AREA, view.getAreaView().getBtnAdd(), view.getAreaView().getBtnEdit(), view.getAreaView().getBtnDelete());
+            return new AreaController(view.getAreaView())::reload;
         });
-
-        // 11. Equipment
-        buttons.get(MainView.CARD_EQUIPMENT).addActionListener(e -> {
-            view.showScreen(MainView.CARD_EQUIPMENT, "QUẢN LÝ THIẾT BỊ PHÒNG TẬP");
+        screen(MainView.CARD_EQUIPMENT, "QUẢN LÝ THIẾT BỊ PHÒNG TẬP", () -> {
+            buttons(MainView.CARD_EQUIPMENT, view.getEquipmentView().getBtnAdd(), view.getEquipmentView().getBtnEdit(), view.getEquipmentView().getBtnDelete());
+            return new EquipmentController(view.getEquipmentView())::reload;
         });
-
-        // 12. Maintenance
-        buttons.get(MainView.CARD_MAINTENANCE).addActionListener(e -> {
-            view.showScreen(MainView.CARD_MAINTENANCE, "QUẢN LÝ PHÂN CÔNG BẢO TRÌ THIẾT BỊ");
+        screen(MainView.CARD_MAINTENANCE, "QUẢN LÝ PHÂN CÔNG BẢO TRÌ THIẾT BỊ", () -> {
+            buttons(MainView.CARD_MAINTENANCE, view.getMaintenanceView().getBtnAdd(), view.getMaintenanceView().getBtnEdit(), view.getMaintenanceView().getBtnDelete());
+            return new MaintenanceController(view.getMaintenanceView(), session)::reload;
         });
-
-        // 13. Cleaning
-        buttons.get(MainView.CARD_CLEANING).addActionListener(e -> {
-            view.showScreen(MainView.CARD_CLEANING, "QUẢN LÝ PHÂN CÔNG VỆ SINH KHU VỰC");
+        screen(MainView.CARD_CLEANING, "QUẢN LÝ PHÂN CÔNG VỆ SINH KHU VỰC", () -> {
+            buttons(MainView.CARD_CLEANING, view.getAreaCleaningView().getBtnAdd(), view.getAreaCleaningView().getBtnEdit(), view.getAreaCleaningView().getBtnDelete());
+            return new AreaCleaningController(view.getAreaCleaningView(), session)::reload;
         });
+        screen(MainView.CARD_ACCOUNT, "QUẢN LÝ TÀI KHOẢN", () -> new AccountController(view.getAccountView(), session)::reload);
+    }
 
-        // Đăng xuất
+    /** Có quyền thì tạo controller và nối menu; không có thì ẩn menu. */
+    private void screen(String card, String title, Supplier<Runnable> createController) {
+        if (!session.canView(card)) {
+            view.hideMenuItem(card);
+            return;
+        }
+        Runnable reload = createController.get();
+        Runnable open = () -> {
+            reload.run();
+            view.showScreen(card, title);
+        };
+        view.getSidebarButtons().get(card).addActionListener(e -> open.run());
+        if (firstScreen == null) {
+            firstScreen = card;
+            firstScreenOpener = open;
+        }
+    }
+
+    /**
+     * Ẩn nút theo quyền. VIEW: ẩn hết. OWN: chỉ giữ nút sửa, để cập nhật việc của mình.
+     * editButton = null với màn hình không có nút sửa.
+     */
+    private void buttons(String card, JButton addButton, JButton editButton, JButton deleteButton) {
+        if (session.canManage(card)) return;
+        addButton.setVisible(false);
+        deleteButton.setVisible(false);
+        if (editButton != null && !session.isOwnOnly(card)) editButton.setVisible(false);
+    }
+
+    private void initActions() {
+        view.getBtnChangePassword().addActionListener(e -> PasswordDialog.show(view, session.getUsername(), false));
+
         view.getBtnLogout().addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(
                     view,
@@ -133,18 +130,4 @@ public class MainController {
             }
         });
     }
-
-    public DashboardController getDashboardController() { return dashboardController; }
-    public MemberController getMemberController() { return memberController; }
-    public PackageController getPackageController() { return packageController; }
-    public SubscriptionController getSubscriptionController() { return subscriptionController; }
-    public PaymentController getPaymentController() { return paymentController; }
-    public CheckinController getCheckinController() { return checkinController; }
-    public TrainerController getTrainerController() { return trainerController; }
-    public PTSessionController getPtSessionController() { return ptSessionController; }
-    public StaffController getStaffController() { return staffController; }
-    public AreaController getAreaController() { return areaController; }
-    public EquipmentController getEquipmentController() { return equipmentController; }
-    public MaintenanceController getMaintenanceController() { return maintenanceController; }
-    public AreaCleaningController getAreaCleaningController() { return areaCleaningController; }
 }

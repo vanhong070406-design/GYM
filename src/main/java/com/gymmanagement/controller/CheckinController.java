@@ -1,9 +1,13 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.data.SampleData;
+import com.gymmanagement.dao.CheckinDao;
+import com.gymmanagement.dao.MemberDao;
+import com.gymmanagement.dao.StaffDao;
 import com.gymmanagement.model.Checkin;
 import com.gymmanagement.model.Member;
+import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Staff;
+import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.CheckinView;
 import com.gymmanagement.view.UITheme;
 
@@ -13,6 +17,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -20,14 +25,17 @@ import java.util.List;
  */
 public class CheckinController {
     private final CheckinView view;
-    private final SampleData data;
+    private final UserSession session;
+    private final CheckinDao dao = new CheckinDao();
+    private final MemberDao memberDao = new MemberDao();
+    private final StaffDao staffDao = new StaffDao();
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public CheckinController(CheckinView view) {
+    public CheckinController(CheckinView view, UserSession session) {
         this.view = view;
-        this.data = SampleData.getInstance();
+        this.session = session;
         initListeners();
-        loadData(data.getCheckins());
+        reload();
     }
 
     private void initListeners() {
@@ -36,7 +44,7 @@ public class CheckinController {
 
         view.getBtnRefresh().addActionListener(e -> {
             view.getTxtSearch().setText("");
-            loadData(data.getCheckins());
+            loadData(fetchAll());
         });
 
         // Check-in mới
@@ -53,12 +61,12 @@ public class CheckinController {
             String checkinId = (String) view.getTableModel().getValueAt(row, 0);
             Checkin c = findCheckinById(checkinId);
             if (c != null) {
-                if (!"--:--".equals(c.getCheckoutTime()) && !c.getCheckoutTime().isEmpty()) {
-                    JOptionPane.showMessageDialog(view, "Lượt check-in này đã được check-out trước đó (" + c.getCheckoutTime() + ")!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                if (c.getCheckoutTime() != null) {
+                    JOptionPane.showMessageDialog(view, "Lượt check-in này đã được check-out trước đó (" + Formats.text(c.getCheckoutTime()) + ")!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
-                c.setCheckoutTime(LocalDateTime.now().format(dtf));
-                loadData(data.getCheckins());
+                if (!DbAction.run(view, () -> dao.checkout(checkinId, LocalDateTime.now()))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Check-out thành công cho hội viên: " + c.getMemberId(), "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
@@ -80,47 +88,47 @@ public class CheckinController {
             );
 
             if (confirm == JOptionPane.YES_OPTION) {
-                data.getCheckins().removeIf(c -> c.getCheckinId().equalsIgnoreCase(checkinId));
-                loadData(data.getCheckins());
+                if (!DbAction.run(view, () -> dao.delete(checkinId))) return;
+                loadData(fetchAll());
                 JOptionPane.showMessageDialog(view, "Xóa lượt check-in thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
         });
+    }
+
+    private List<Checkin> fetchAll() {
+        return DbAction.fetch(view, dao::findAll, List.of());
+    }
+
+    public void reload() {
+        handleSearch();
     }
 
     public void loadData(List<Checkin> list) {
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
         for (Checkin c : list) {
-            String memberName = getMemberName(c.getMemberId());
             model.addRow(new Object[]{
                     c.getCheckinId(),
                     c.getMemberId(),
-                    memberName,
-                    c.getCheckinTime(),
-                    c.getCheckoutTime(),
+                    c.getMemberName(),
+                    Formats.text(c.getCheckinTime()),
+                    c.getCheckoutTime() == null ? Formats.NO_CHECKOUT : Formats.text(c.getCheckoutTime()),
                     c.getReceptionistId()
             });
         }
     }
 
-    private String getMemberName(String memberId) {
-        for (Member m : data.getMembers()) {
-            if (m.getMemberId().equalsIgnoreCase(memberId)) return m.getFullName();
-        }
-        return "N/A";
-    }
-
     private void handleSearch() {
         String q = view.getTxtSearch().getText().trim().toLowerCase();
         if (q.isEmpty()) {
-            loadData(data.getCheckins());
+            loadData(fetchAll());
             return;
         }
 
-        List<Checkin> filtered = data.getCheckins().stream()
+        List<Checkin> filtered = fetchAll().stream()
                 .filter(c -> c.getCheckinId().toLowerCase().contains(q)
                         || c.getMemberId().toLowerCase().contains(q)
-                        || getMemberName(c.getMemberId()).toLowerCase().contains(q)
+                        || c.getMemberName().toLowerCase().contains(q)
                         || c.getReceptionistId().toLowerCase().contains(q))
                 .toList();
 
@@ -128,7 +136,7 @@ public class CheckinController {
     }
 
     private Checkin findCheckinById(String id) {
-        for (Checkin c : data.getCheckins()) {
+        for (Checkin c : fetchAll()) {
             if (c.getCheckinId().equalsIgnoreCase(id)) return c;
         }
         return null;
@@ -149,10 +157,10 @@ public class CheckinController {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         JTextField txtId = UITheme.createTextField(15);
-        txtId.setText("CK" + String.format("%03d", data.getCheckins().size() + 1));
+        txtId.setText(DbAction.fetch(view, dao::nextId, ""));
 
         JComboBox<Member> cbMember = new JComboBox<>();
-        for (Member m : data.getMembers()) cbMember.addItem(m);
+        for (Member m : DbAction.fetch(view, memberDao::findAll, List.<Member>of())) cbMember.addItem(m);
         cbMember.setFont(UITheme.FONT_REGULAR);
         cbMember.setBackground(Color.WHITE);
 
@@ -160,7 +168,10 @@ public class CheckinController {
         txtTime.setText(LocalDateTime.now().format(dtf));
 
         JComboBox<Staff> cbReceptionist = new JComboBox<>();
-        for (Staff st : data.getStaffList()) cbReceptionist.addItem(st);
+        for (Staff st : DbAction.fetch(view, () -> staffDao.findByPosition(Position.RECEPTIONIST), List.<Staff>of())) {
+            cbReceptionist.addItem(st);
+            if (st.getStaffId().equals(session.getStaffId())) cbReceptionist.setSelectedItem(st); // Lễ tân đang đăng nhập
+        }
         cbReceptionist.setFont(UITheme.FONT_REGULAR);
         cbReceptionist.setBackground(Color.WHITE);
 
@@ -179,24 +190,27 @@ public class CheckinController {
         btnSave.addActionListener(e -> {
             String id = txtId.getText().trim();
             Member selMember = (Member) cbMember.getSelectedItem();
-            String time = txtTime.getText().trim();
+            String timeText = txtTime.getText().trim();
             Staff selStaff = (Staff) cbReceptionist.getSelectedItem();
 
-            if (id.isEmpty() || selMember == null || time.isEmpty() || selStaff == null) {
+            if (id.isEmpty() || selMember == null || timeText.isEmpty() || selStaff == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ thông tin!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            if (findCheckinById(id) != null) {
-                JOptionPane.showMessageDialog(dialog, "Mã check-in đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            LocalDateTime time;
+            try {
+                time = Formats.parseDateTime(timeText);
+            } catch (DateTimeParseException ex) {
+                JOptionPane.showMessageDialog(dialog, "Thời gian phải có dạng yyyy-MM-dd HH:mm!", "Lỗi định dạng", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            Checkin newCheckin = new Checkin(id, time, "--:--", selMember.getMemberId(), selStaff.getStaffId());
-            data.getCheckins().add(newCheckin);
+            Checkin newCheckin = new Checkin(id, time, null, selMember.getMemberId(), selStaff.getStaffId());
+            if (!DbAction.run(dialog, () -> dao.insert(newCheckin))) return;
             JOptionPane.showMessageDialog(dialog, "Check-in thành công cho: " + selMember.getFullName(), "Thông báo", JOptionPane.INFORMATION_MESSAGE);
 
-            loadData(data.getCheckins());
+            loadData(fetchAll());
             dialog.dispose();
         });
 
