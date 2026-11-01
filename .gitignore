@@ -1,0 +1,18 @@
+# Cấu hình chứa mật khẩu database
+db.properties
+
+# File sinh ra khi biên dịch
+bin/
+out/
+*.class
+sources.txt
+
+# Cấu hình riêng của IDE
+.idea/
+*.iml
+.vscode/
+
+# File của hệ điều hành
+Thumbs.db
+Desktop.ini
+.DS_Store
