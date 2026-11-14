@@ -31,11 +31,8 @@ INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('QL', 'TRAINER', 'MANAGE'),
  ('QL', 'PTSESSION', 'MANAGE'),
  ('QL', 'STAFF', 'MANAGE'),
- ('QL', 'AREA', 'MANAGE'),
  ('QL', 'EQUIPMENT', 'MANAGE'),
  ('QL', 'MAINTENANCE', 'MANAGE'),
- ('QL', 'CLEANING', 'MANAGE'),
- ('QL', 'ACCOUNT', 'MANAGE'),
  ('LT', 'MEMBER', 'MANAGE'),
  ('LT', 'PACKAGE', 'VIEW'),
  ('LT', 'SUBSCRIPTION', 'MANAGE'),
@@ -43,14 +40,9 @@ INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('LT', 'CHECKIN', 'MANAGE'),
  ('LT', 'TRAINER', 'VIEW'),
  ('LT', 'PTSESSION', 'MANAGE'),
- ('LT', 'AREA', 'VIEW'),
  ('KT', 'EQUIPMENT', 'MANAGE'),
  ('KT', 'MAINTENANCE', 'OWN'),
- ('KT', 'AREA', 'VIEW'),
- ('TV', 'CLEANING', 'OWN'),
- ('TV', 'AREA', 'VIEW'),
- ('HLV', 'PTSESSION', 'OWN'),
- ('HLV', 'AREA', 'VIEW');
+ ('HLV', 'PTSESSION', 'OWN');
 
 INSERT INTO Shift (ShiftID, ShiftName, StartTime, EndTime) VALUES
  ('SANG',  N'Ca sáng',       '06:00', '14:00'),
@@ -138,38 +130,26 @@ FROM (VALUES
 ) v(TrainerID, SpecialtyName)
 JOIN Specialty s ON s.SpecialtyName = v.SpecialtyName;
 
-INSERT INTO Area (AreaID, AreaName, Floor, Description) VALUES
- ('AR01', N'Khu Cardio & Chạy bộ',        N'Tầng 1', N'Khu máy chạy, xe đạp, trượt tuyết'),
- ('AR02', N'Khu Tạ Tự Do (Free Weights)', N'Tầng 1', N'Tạ đơn, tạ đòn, ghế đẩy tạ'),
- ('AR03', N'Khu Máy Khối (Pin Loaded)',   N'Tầng 2', N'Các dòng máy tập từng nhóm cơ cô lập'),
- ('AR04', N'Phòng Studio Yoga & Nhóm',    N'Tầng 2', N'Sàn gỗ chuyên dụng, gương toàn phần'),
- ('AR05', N'Khu Giãn Cơ & Phục Hồi',      N'Tầng 2', N'Thảm, con lăn foam roller, xông hơi');
 
-INSERT INTO PTSession (SessionID, StartTime, EndTime, Status, TrainerID, AreaID, MemberID) VALUES
- ('SES001', DATEADD(HOUR,  8,@now), DATEADD(MINUTE,  570,@now), N'Đã đặt',       'TR001', 'AR02', 'MB001'),
- ('SES002', DATEADD(HOUR, 10,@now), DATEADD(MINUTE,  690,@now), N'Đang diễn ra', 'TR002', 'AR04', 'MB002'),
- ('SES003', DATEADD(HOUR, 14,@now), DATEADD(MINUTE,  930,@now), N'Hoàn thành',   'TR003', 'AR01', 'MB003'),
- ('SES004', DATEADD(MINUTE, 990,@now), DATEADD(HOUR, 18,@now),  N'Đã đặt',       'TR004', 'AR05', 'MB004'),
- ('SES005', DATEADD(MINUTE,1110,@now), DATEADD(HOUR, 20,@now),  N'Đã đặt',       'TR001', 'AR02', 'MB005');
+INSERT INTO PTSession (SessionID, StartTime, EndTime, Status, TrainerID, MemberID) VALUES
+ ('SES001', DATEADD(HOUR,  8,@now), DATEADD(MINUTE,  570,@now), N'Đã đặt',       'TR001', 'MB001'),
+ ('SES002', DATEADD(HOUR, 10,@now), DATEADD(MINUTE,  690,@now), N'Đang diễn ra', 'TR002', 'MB002'),
+ ('SES003', DATEADD(HOUR, 14,@now), DATEADD(MINUTE,  930,@now), N'Hoàn thành',   'TR003', 'MB003'),
+ ('SES004', DATEADD(MINUTE, 990,@now), DATEADD(HOUR, 18,@now),  N'Đã đặt',       'TR004', 'MB004'),
+ ('SES005', DATEADD(MINUTE,1110,@now), DATEADD(HOUR, 20,@now),  N'Đã đặt',       'TR001', 'MB005');
 
-INSERT INTO Equipment (EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status, AreaID) VALUES
- ('EQ01', N'Máy chạy bộ Technogym Skillrun', 85000000, '2023-01-10', N'Tốt', 'AR01'),
- ('EQ02', N'Xe đạp tập LifeFitness IC7',     45000000, '2023-01-15', N'Tốt', 'AR01'),
- ('EQ03', N'Khung gánh tạ Smith Machine',    38000000, '2023-02-01', N'Tốt', 'AR02'),
- ('EQ04', N'Ghế đẩy ngực bằng Impulse',      18000000, '2023-02-10', N'Đang bảo trì', 'AR02'),
- ('EQ05', N'Máy kéo xô đôi Cable Crossover', 55000000, '2023-03-05', N'Tốt', 'AR03'),
- ('EQ06', N'Máy đạp đùi Leg Press 45 độ',    42000000, '2023-03-12', N'Cần thay thế linh kiện', 'AR03');
+INSERT INTO Equipment (EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status) VALUES
+ ('EQ01', N'Máy chạy bộ Technogym Skillrun', 85000000, '2023-01-10', N'Tốt'),
+ ('EQ02', N'Xe đạp tập LifeFitness IC7',     45000000, '2023-01-15', N'Tốt'),
+ ('EQ03', N'Khung gánh tạ Smith Machine',    38000000, '2023-02-01', N'Tốt'),
+ ('EQ04', N'Ghế đẩy ngực bằng Impulse',      18000000, '2023-02-10', N'Đang bảo trì'),
+ ('EQ05', N'Máy kéo xô đôi Cable Crossover', 55000000, '2023-03-05', N'Tốt'),
+ ('EQ06', N'Máy đạp đùi Leg Press 45 độ',    42000000, '2023-03-12', N'Cần thay thế linh kiện');
 
 INSERT INTO MaintenanceAssignment (StaffID, EquipmentID, MaintenanceDate, Note, Status) VALUES
  ('ST004', 'EQ04', DATEADD(DAY, -5,@today), N'Thay đệm bọc ghế và tra dầu khớp trượt',      N'Đang bảo trì'),
  ('ST004', 'EQ06', DATEADD(DAY, -1,@today), N'Kiểm tra cáp chịu tải và chốt hãm',           N'Chờ linh kiện'),
  ('ST004', 'EQ01', DATEADD(DAY,-25,@today), N'Bảo dưỡng động cơ và cân chỉnh băng chuyền',  N'Đã hoàn thành');
-
-INSERT INTO AreaCleaning (AreaID, CleaningDate, ShiftID, StaffID, Status) VALUES
- ('AR01', @today, 'SANG',  'ST005', N'Đã hoàn thành'),
- ('AR02', @today, 'SANG',  'ST005', N'Đã hoàn thành'),
- ('AR04', @today, 'CHIEU', 'ST005', N'Đang thực hiện'),
- ('AR05', @today, 'CHIEU', 'ST005', N'Chưa làm');
 
 COMMIT;
 GO

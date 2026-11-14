@@ -3,6 +3,11 @@ package com.gymmanagement.controller;
 import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.LoginView;
 import com.gymmanagement.view.MainView;
+import java.awt.Cursor;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import javax.swing.*;
 
@@ -20,16 +25,32 @@ public class MainController {
         this.view = view;
         this.session = session;
         view.setCurrentUser(session.getFullName() + " (" + session.getPositionName() + ")");
+        initDashboard();
         initScreens();
         initActions();
         if (firstScreen != null) firstScreenOpener.run();
     }
 
-    private void initScreens() {
-        screen(MainView.CARD_DASHBOARD, "TỔNG QUAN HỆ THỐNG (DASHBOARD)", () -> {
-            DashboardController c = new DashboardController(view.getDashboardView());
-            return c::loadData;
+    /** Dashboard mở khi bấm vào GYM FITNESS PRO, không còn mục menu riêng. */
+    private void initDashboard() {
+        if (!session.canView(MainView.CARD_DASHBOARD)) return;
+        DashboardController c = new DashboardController(view.getDashboardView());
+        Runnable open = () -> {
+            c.loadData();
+            view.showScreen(MainView.CARD_DASHBOARD, "TỔNG QUAN HỆ THỐNG (DASHBOARD)");
+        };
+        view.getBrandPanel().setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        view.getBrandPanel().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                open.run();
+            }
         });
+        firstScreen = MainView.CARD_DASHBOARD;
+        firstScreenOpener = open;
+    }
+
+    private void initScreens() {
         screen(MainView.CARD_MEMBER, "QUẢN LÝ HỘI VIÊN", () -> {
             buttons(MainView.CARD_MEMBER, view.getMemberView().getBtnAdd(), view.getMemberView().getBtnEdit(), view.getMemberView().getBtnDelete());
             return new MemberController(view.getMemberView())::reload;
@@ -62,23 +83,32 @@ public class MainController {
             buttons(MainView.CARD_STAFF, view.getStaffView().getBtnAdd(), view.getStaffView().getBtnEdit(), view.getStaffView().getBtnDelete());
             return new StaffController(view.getStaffView(), session)::reload;
         });
-        screen(MainView.CARD_AREA, "QUẢN LÝ KHU VỰC PHÒNG GYM", () -> {
-            buttons(MainView.CARD_AREA, view.getAreaView().getBtnAdd(), view.getAreaView().getBtnEdit(), view.getAreaView().getBtnDelete());
-            return new AreaController(view.getAreaView())::reload;
-        });
-        screen(MainView.CARD_EQUIPMENT, "QUẢN LÝ THIẾT BỊ PHÒNG TẬP", () -> {
+        initEquipmentScreen();
+    }
+
+    /** Màn hình Thiết bị gồm tab Danh sách thiết bị và tab Bảo trì; tab nào không có quyền thì bị gỡ. */
+    private void initEquipmentScreen() {
+        boolean canEquipment = session.canView(MainView.CARD_EQUIPMENT);
+        boolean canMaintenance = session.canView(MainView.CARD_MAINTENANCE);
+        if (!canEquipment && !canMaintenance) {
+            view.hideMenuItem(MainView.CARD_EQUIPMENT);
+            return;
+        }
+
+        List<Runnable> reloads = new ArrayList<>();
+        if (canEquipment) {
             buttons(MainView.CARD_EQUIPMENT, view.getEquipmentView().getBtnAdd(), view.getEquipmentView().getBtnEdit(), view.getEquipmentView().getBtnDelete());
-            return new EquipmentController(view.getEquipmentView())::reload;
-        });
-        screen(MainView.CARD_MAINTENANCE, "QUẢN LÝ PHÂN CÔNG BẢO TRÌ THIẾT BỊ", () -> {
+            reloads.add(new EquipmentController(view.getEquipmentView())::reload);
+        } else {
+            view.getEquipmentTabs().remove(view.getEquipmentView());
+        }
+        if (canMaintenance) {
             buttons(MainView.CARD_MAINTENANCE, view.getMaintenanceView().getBtnAdd(), view.getMaintenanceView().getBtnEdit(), view.getMaintenanceView().getBtnDelete());
-            return new MaintenanceController(view.getMaintenanceView(), session)::reload;
-        });
-        screen(MainView.CARD_CLEANING, "QUẢN LÝ PHÂN CÔNG VỆ SINH KHU VỰC", () -> {
-            buttons(MainView.CARD_CLEANING, view.getAreaCleaningView().getBtnAdd(), view.getAreaCleaningView().getBtnEdit(), view.getAreaCleaningView().getBtnDelete());
-            return new AreaCleaningController(view.getAreaCleaningView(), session)::reload;
-        });
-        screen(MainView.CARD_ACCOUNT, "QUẢN LÝ TÀI KHOẢN", () -> new AccountController(view.getAccountView(), session)::reload);
+            reloads.add(new MaintenanceController(view.getMaintenanceView(), session)::reload);
+        } else {
+            view.getEquipmentTabs().remove(view.getMaintenanceView());
+        }
+        register(MainView.CARD_EQUIPMENT, "QUẢN LÝ THIẾT BỊ PHÒNG TẬP", () -> reloads.forEach(Runnable::run));
     }
 
     /** Có quyền thì tạo controller và nối menu; không có thì ẩn menu. */
@@ -87,7 +117,10 @@ public class MainController {
             view.hideMenuItem(card);
             return;
         }
-        Runnable reload = createController.get();
+        register(card, title, createController.get());
+    }
+
+    private void register(String card, String title, Runnable reload) {
         Runnable open = () -> {
             reload.run();
             view.showScreen(card, title);

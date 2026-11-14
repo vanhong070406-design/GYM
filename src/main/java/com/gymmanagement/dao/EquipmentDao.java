@@ -6,18 +6,18 @@ import java.util.List;
 
 public class EquipmentDao {
     public List<Equipment> findAll() {
-        return Jdbc.query("SELECT EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status, AreaID FROM Equipment ORDER BY EquipmentID",
-                rs -> new Equipment(rs.getString(1), rs.getString(2), rs.getBigDecimal(3), rs.getObject(4, LocalDate.class), rs.getString(5), rs.getString(6)));
+        return Jdbc.query("SELECT EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status FROM Equipment ORDER BY EquipmentID",
+                rs -> new Equipment(rs.getString(1), rs.getString(2), rs.getBigDecimal(3), rs.getObject(4, LocalDate.class), rs.getString(5)));
     }
 
     public void insert(Equipment x) {
-        Jdbc.update("INSERT INTO Equipment (EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status, AreaID) VALUES (?,?,?,?,?,?)",
-                x.getEquipmentId(), x.getEquipmentName(), x.getValue(), x.getPurchaseDate(), x.getStatus(), x.getAreaId());
+        Jdbc.update("INSERT INTO Equipment (EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status) VALUES (?,?,?,?,?)",
+                x.getEquipmentId(), x.getEquipmentName(), x.getValue(), x.getPurchaseDate(), x.getStatus());
     }
 
     public void update(Equipment x) {
-        Jdbc.update("UPDATE Equipment SET EquipmentName=?, PurchaseValue=?, PurchaseDate=?, Status=?, AreaID=? WHERE EquipmentID=?",
-                x.getEquipmentName(), x.getValue(), x.getPurchaseDate(), x.getStatus(), x.getAreaId(), x.getEquipmentId());
+        Jdbc.update("UPDATE Equipment SET EquipmentName=?, PurchaseValue=?, PurchaseDate=?, Status=? WHERE EquipmentID=?",
+                x.getEquipmentName(), x.getValue(), x.getPurchaseDate(), x.getStatus(), x.getEquipmentId());
     }
 
     public void delete(String id) {

@@ -1,9 +1,9 @@
 package com.gymmanagement.view;
 
+import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
-import java.awt.*;
 
 /**
  * Giao diện Quản lý lịch tập PT (PT Session Management)
@@ -40,7 +40,7 @@ public class PTSessionView extends JPanel {
         lblSearch.setForeground(UITheme.TEXT_DARK);
 
         txtSearch = UITheme.createTextField(14);
-        txtSearch.setToolTipText("Mã lịch, Mã PT, hoặc Mã Khu vực...");
+        txtSearch.setToolTipText("Mã lịch, Mã PT, Mã hội viên hoặc Tên...");
 
         JLabel lblStatus = new JLabel("Trạng thái:");
         lblStatus.setFont(UITheme.FONT_BOLD);
@@ -79,7 +79,7 @@ public class PTSessionView extends JPanel {
 
         String[] columns = {
                 "Mã Buổi Tập", "Thời Gian Bắt Đầu", "Thời Gian Kết Thúc", 
-                "Trạng Thái", "Mã HLV (PT)", "Tên HLV", "Mã Khu Vực Tập", "Mã Hội Viên", "Tên Hội Viên"
+                "Trạng Thái", "Mã HLV (PT)", "Tên HLV", "Mã Hội Viên", "Tên Hội Viên"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

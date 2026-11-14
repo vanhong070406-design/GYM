@@ -9,7 +9,7 @@ import javax.swing.border.EmptyBorder;
 /**
  * Cửa sổ chính của phần mềm Quản lý Phòng Gym
  * Bố cục:
- * - Sidebar bên trái: Menu điều hướng
+ * - Sidebar bên trái: Menu điều hướng (bấm GYM FITNESS PRO để xem Dashboard)
  * - Header phía trên: Tiêu đề màn hình & Thông tin người dùng
  * - Content ở giữa: CardLayout chuyển đổi các màn hình chức năng mà không mở cửa sổ mới
  */
@@ -24,11 +24,9 @@ public class MainView extends JFrame {
     public static final String CARD_TRAINER = "TRAINER";
     public static final String CARD_PTSESSION = "PTSESSION";
     public static final String CARD_STAFF = "STAFF";
-    public static final String CARD_AREA = "AREA";
     public static final String CARD_EQUIPMENT = "EQUIPMENT";
+    /** Mã quyền của tab Bảo trì (không còn card riêng, nằm trong màn hình Thiết bị). */
     public static final String CARD_MAINTENANCE = "MAINTENANCE";
-    public static final String CARD_CLEANING = "CLEANING";
-    public static final String CARD_ACCOUNT = "ACCOUNT";
 
     private CardLayout cardLayout;
     private JPanel contentContainer;
@@ -36,6 +34,7 @@ public class MainView extends JFrame {
     private JButton btnLogout;
     private JButton btnChangePassword;
     private JLabel lblRole;
+    private JPanel brandPanel;
 
     // Các màn hình con
     private DashboardView dashboardView;
@@ -47,18 +46,16 @@ public class MainView extends JFrame {
     private TrainerView trainerView;
     private PTSessionView ptSessionView;
     private StaffView staffView;
-    private AreaView areaView;
     private EquipmentView equipmentView;
     private MaintenanceView maintenanceView;
-    private AreaCleaningView areaCleaningView;
-    private AccountView accountView;
+    private JTabbedPane equipmentTabs;
 
     // Lưu danh sách nút Sidebar để cập nhật giao diện khi chọn
     private final Map<String, JButton> sidebarButtons = new HashMap<>();
     private final Map<String, Component> sidebarGaps = new HashMap<>();
 
     public MainView() {
-        setTitle("Phần mềm Quản lý Phòng Gym - MVC Architecture");
+        setTitle("Phần mềm Quản lý Phòng Gym - Nutri Boost ProMax");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1240, 780);
         setMinimumSize(new Dimension(1050, 650));
@@ -94,11 +91,14 @@ public class MainView extends JFrame {
         trainerView = new TrainerView();
         ptSessionView = new PTSessionView();
         staffView = new StaffView();
-        areaView = new AreaView();
         equipmentView = new EquipmentView();
         maintenanceView = new MaintenanceView();
-        areaCleaningView = new AreaCleaningView();
-        accountView = new AccountView();
+
+        // Màn hình Thiết bị gồm 2 tab: danh sách thiết bị và phân công bảo trì
+        equipmentTabs = new JTabbedPane();
+        equipmentTabs.setFont(UITheme.FONT_BOLD);
+        equipmentTabs.addTab("Danh sách thiết bị", equipmentView);
+        equipmentTabs.addTab("Bảo trì thiết bị", maintenanceView); 
 
         // Đưa các Views vào CardLayout
         contentContainer.add(dashboardView, CARD_DASHBOARD);
@@ -110,11 +110,7 @@ public class MainView extends JFrame {
         contentContainer.add(trainerView, CARD_TRAINER);
         contentContainer.add(ptSessionView, CARD_PTSESSION);
         contentContainer.add(staffView, CARD_STAFF);
-        contentContainer.add(areaView, CARD_AREA);
-        contentContainer.add(equipmentView, CARD_EQUIPMENT);
-        contentContainer.add(maintenanceView, CARD_MAINTENANCE);
-        contentContainer.add(areaCleaningView, CARD_CLEANING);
-        contentContainer.add(accountView, CARD_ACCOUNT);
+        contentContainer.add(equipmentTabs, CARD_EQUIPMENT);
 
         rightPanel.add(header, BorderLayout.NORTH);
         rightPanel.add(contentContainer, BorderLayout.CENTER);
@@ -130,8 +126,8 @@ public class MainView extends JFrame {
         sidebar.setPreferredSize(new Dimension(245, 0));
         sidebar.setBackground(UITheme.BG_SIDEBAR);
 
-        // Logo thương hiệu trên Sidebar
-        JPanel brandPanel = new JPanel();
+        // Logo thương hiệu trên Sidebar (bấm vào để mở Dashboard)
+        brandPanel = new JPanel();
         brandPanel.setLayout(new BoxLayout(brandPanel, BoxLayout.Y_AXIS));
         brandPanel.setBackground(UITheme.BG_SIDEBAR);
         brandPanel.setBorder(new EmptyBorder(22, 20, 20, 20));
@@ -140,7 +136,7 @@ public class MainView extends JFrame {
         lblBrand.setFont(new Font("Segoe UI", Font.BOLD, 17));
         lblBrand.setForeground(UITheme.TEXT_LIGHT);
 
-        JLabel lblSub = new JLabel("Hệ Thống Quản Lý MVC");
+        JLabel lblSub = new JLabel("Nutri Boost ProMax");
         lblSub.setFont(UITheme.FONT_SMALL);
         lblSub.setForeground(UITheme.SIDEBAR_TEXT_MUTED);
 
@@ -154,7 +150,6 @@ public class MainView extends JFrame {
         menuPanel.setBackground(UITheme.BG_SIDEBAR);
         menuPanel.setBorder(new EmptyBorder(4, 10, 10, 10));
 
-        addMenuItem(menuPanel, "Tổng quan Dashboard", CARD_DASHBOARD);
         addMenuItem(menuPanel, "Quản lý Hội viên", CARD_MEMBER);
         addMenuItem(menuPanel, "Quản lý Gói tập", CARD_PACKAGE);
         addMenuItem(menuPanel, "Đăng ký Gói tập", CARD_SUBSCRIPTION);
@@ -163,11 +158,7 @@ public class MainView extends JFrame {
         addMenuItem(menuPanel, "Huấn luyện viên PT", CARD_TRAINER);
         addMenuItem(menuPanel, "Lịch tập PT", CARD_PTSESSION);
         addMenuItem(menuPanel, "Quản lý Nhân viên", CARD_STAFF);
-        addMenuItem(menuPanel, "Quản lý Khu vực", CARD_AREA);
         addMenuItem(menuPanel, "Quản lý Thiết bị", CARD_EQUIPMENT);
-        addMenuItem(menuPanel, "Bảo trì Thiết bị", CARD_MAINTENANCE);
-        addMenuItem(menuPanel, "Phân công Vệ sinh", CARD_CLEANING);
-        addMenuItem(menuPanel, "Quản lý Tài khoản", CARD_ACCOUNT);
 
         JScrollPane scrollMenu = new JScrollPane(menuPanel);
         scrollMenu.setBackground(UITheme.BG_SIDEBAR);
@@ -188,9 +179,6 @@ public class MainView extends JFrame {
         sidebar.add(brandPanel, BorderLayout.NORTH);
         sidebar.add(scrollMenu, BorderLayout.CENTER);
         sidebar.add(footerPanel, BorderLayout.SOUTH);
-
-        // Chọn mặc định Dashboard
-        updateActiveButton(CARD_DASHBOARD);
 
         return sidebar;
     }
@@ -273,9 +261,9 @@ public class MainView extends JFrame {
 
     // Getters
     public Map<String, JButton> getSidebarButtons() { return sidebarButtons; }
+    public JPanel getBrandPanel() { return brandPanel; }
     public JButton getBtnLogout() { return btnLogout; }
     public JButton getBtnChangePassword() { return btnChangePassword; }
-    public AccountView getAccountView() { return accountView; }
     public DashboardView getDashboardView() { return dashboardView; }
     public MemberView getMemberView() { return memberView; }
     public PackageView getPackageView() { return packageView; }
@@ -285,8 +273,7 @@ public class MainView extends JFrame {
     public TrainerView getTrainerView() { return trainerView; }
     public PTSessionView getPtSessionView() { return ptSessionView; }
     public StaffView getStaffView() { return staffView; }
-    public AreaView getAreaView() { return areaView; }
     public EquipmentView getEquipmentView() { return equipmentView; }
     public MaintenanceView getMaintenanceView() { return maintenanceView; }
-    public AreaCleaningView getAreaCleaningView() { return areaCleaningView; }
+    public JTabbedPane getEquipmentTabs() { return equipmentTabs; }
 }

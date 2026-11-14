@@ -1,9 +1,9 @@
 package com.gymmanagement.view;
 
+import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
-import java.awt.*;
 
 /**
  * Giao diện Quản lý thiết bị (Equipment Management)
@@ -79,7 +79,7 @@ public class EquipmentView extends JPanel {
 
         String[] columns = {
                 "Mã Thiết Bị", "Tên Thiết Bị", "Giá Trị (VNĐ)", 
-                "Ngày Mua", "Trạng Thái Hoạt Động", "Mã Khu Vực Đặt"
+                "Ngày Mua", "Trạng Thái Hoạt Động"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

@@ -21,7 +21,7 @@ public class UITheme {
     
     public static final Color BG_MAIN = new Color(248, 250, 252);     // Slate-50 (#F8FAFC)
     public static final Color BG_CARD = Color.WHITE;
-    public static final Color BG_SIDEBAR = new Color(15, 23, 42);     // Slate-900 (#0F172A)
+    public static final Color BG_SIDEBAR = new Color(0, 59, 92);     // Slate-900 (#0F172A)
     public static final Color SIDEBAR_HOVER = new Color(30, 41, 59);  // Slate-800 (#1E293B)
     public static final Color SIDEBAR_ACTIVE = new Color(37, 99, 235); // Blue-600
     
@@ -44,7 +44,7 @@ public class UITheme {
     public static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 18);
     public static final Font FONT_HEADER = new Font("Segoe UI", Font.BOLD, 15);
     public static final Font FONT_REGULAR = new Font("Segoe UI", Font.PLAIN, 13);
-    public static final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 13);
+    public static final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 16);
     public static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
     public static final Font FONT_BIG_STAT = new Font("Segoe UI", Font.BOLD, 26);
 

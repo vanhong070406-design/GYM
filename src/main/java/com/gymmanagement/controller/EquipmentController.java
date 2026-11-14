@@ -1,20 +1,17 @@
 package com.gymmanagement.controller;
 
-import com.gymmanagement.dao.AreaDao;
 import com.gymmanagement.dao.EquipmentDao;
-import com.gymmanagement.model.Area;
 import com.gymmanagement.model.Equipment;
 import com.gymmanagement.view.EquipmentView;
 import com.gymmanagement.view.UITheme;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 
 /**
  * Controller điều phối Quản lý thiết bị
@@ -22,7 +19,6 @@ import java.util.List;
 public class EquipmentController {
     private final EquipmentView view;
     private final EquipmentDao dao = new EquipmentDao();
-    private final AreaDao areaDao = new AreaDao();
 
     public EquipmentController(EquipmentView view) {
         this.view = view;
@@ -97,8 +93,7 @@ public class EquipmentController {
                     eq.getEquipmentName(),
                     String.format("%,.0f", eq.getValue()),
                     Formats.text(eq.getPurchaseDate()),
-                    eq.getStatus(),
-                    eq.getAreaId()
+                    eq.getStatus()
             });
         }
     }
@@ -111,8 +106,7 @@ public class EquipmentController {
                 .filter(eq -> {
                     boolean matchQ = q.isEmpty()
                             || eq.getEquipmentId().toLowerCase().contains(q)
-                            || eq.getEquipmentName().toLowerCase().contains(q)
-                            || eq.getAreaId().toLowerCase().contains(q);
+                            || eq.getEquipmentName().toLowerCase().contains(q);
 
                     boolean matchStatus = "Tất cả".equals(statusFilter)
                             || eq.getStatus().equalsIgnoreCase(statusFilter);
@@ -135,7 +129,7 @@ public class EquipmentController {
         boolean isEdit = (eqToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa thiết bị" : "Thêm thiết bị mới", true);
-        dialog.setSize(480, 440);
+        dialog.setSize(480, 390);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -156,11 +150,6 @@ public class EquipmentController {
         cbStatus.setFont(UITheme.FONT_REGULAR);
         cbStatus.setBackground(Color.WHITE);
 
-        JComboBox<Area> cbArea = new JComboBox<>();
-        for (Area a : DbAction.fetch(view, areaDao::findAll, List.<Area>of())) cbArea.addItem(a);
-        cbArea.setFont(UITheme.FONT_REGULAR);
-        cbArea.setBackground(Color.WHITE);
-
         if (isEdit) {
             txtId.setText(eqToEdit.getEquipmentId());
             txtId.setEditable(false);
@@ -168,12 +157,6 @@ public class EquipmentController {
             txtValue.setText(eqToEdit.getValue().toPlainString());
             txtPurchaseDate.setText(Formats.text(eqToEdit.getPurchaseDate()));
             cbStatus.setSelectedItem(eqToEdit.getStatus());
-            for (int i = 0; i < cbArea.getItemCount(); i++) {
-                if (cbArea.getItemAt(i).getAreaId().equalsIgnoreCase(eqToEdit.getAreaId())) {
-                    cbArea.setSelectedIndex(i);
-                    break;
-                }
-            }
         } else {
             txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtValue.setText("25000000");
@@ -185,7 +168,6 @@ public class EquipmentController {
         addFormRow(panel, gbc, 2, "Giá trị (VNĐ) (*):", txtValue);
         addFormRow(panel, gbc, 3, "Ngày mua (*):", txtPurchaseDate);
         addFormRow(panel, gbc, 4, "Trạng thái (*):", cbStatus);
-        addFormRow(panel, gbc, 5, "Khu vực đặt (*):", cbArea);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);
@@ -200,9 +182,8 @@ public class EquipmentController {
             String valStr = txtValue.getText().trim();
             String pDateText = txtPurchaseDate.getText().trim();
             String status = (String) cbStatus.getSelectedItem();
-            Area selArea = (Area) cbArea.getSelectedItem();
 
-            if (id.isEmpty() || name.isEmpty() || valStr.isEmpty() || pDateText.isEmpty() || selArea == null) {
+            if (id.isEmpty() || name.isEmpty() || valStr.isEmpty() || pDateText.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ thông tin thiết bị!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -228,11 +209,10 @@ public class EquipmentController {
                 eqToEdit.setValue(val);
                 eqToEdit.setPurchaseDate(pDate);
                 eqToEdit.setStatus(status);
-                eqToEdit.setAreaId(selArea.getAreaId());
                 if (!DbAction.run(dialog, () -> dao.update(eqToEdit))) return;
                 JOptionPane.showMessageDialog(dialog, "Cập nhật thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                Equipment newEq = new Equipment(id, name, val, pDate, status, selArea.getAreaId());
+                Equipment newEq = new Equipment(id, name, val, pDate, status);
                 if (!DbAction.run(dialog, () -> dao.insert(newEq))) return;
                 JOptionPane.showMessageDialog(dialog, "Thêm mới thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
@@ -245,7 +225,7 @@ public class EquipmentController {
         btnPanel.add(btnSave);
 
         gbc.gridx = 0;
-        gbc.gridy = 6;
+        gbc.gridy = 5;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(16, 6, 6, 6);
         panel.add(btnPanel, gbc);

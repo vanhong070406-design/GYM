@@ -45,11 +45,8 @@ INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('QL', 'TRAINER', 'MANAGE'),
  ('QL', 'PTSESSION', 'MANAGE'),
  ('QL', 'STAFF', 'MANAGE'),
- ('QL', 'AREA', 'MANAGE'),
  ('QL', 'EQUIPMENT', 'MANAGE'),
  ('QL', 'MAINTENANCE', 'MANAGE'),
- ('QL', 'CLEANING', 'MANAGE'),
- ('QL', 'ACCOUNT', 'MANAGE'),
  ('LT', 'MEMBER', 'MANAGE'),
  ('LT', 'PACKAGE', 'VIEW'),
  ('LT', 'SUBSCRIPTION', 'MANAGE'),
@@ -57,14 +54,9 @@ INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('LT', 'CHECKIN', 'MANAGE'),
  ('LT', 'TRAINER', 'VIEW'),
  ('LT', 'PTSESSION', 'MANAGE'),
- ('LT', 'AREA', 'VIEW'),
  ('KT', 'EQUIPMENT', 'MANAGE'),
  ('KT', 'MAINTENANCE', 'OWN'),
- ('KT', 'AREA', 'VIEW'),
- ('TV', 'CLEANING', 'OWN'),
- ('TV', 'AREA', 'VIEW'),
- ('HLV', 'PTSESSION', 'OWN'),
- ('HLV', 'AREA', 'VIEW');
+ ('HLV', 'PTSESSION', 'OWN');
 
 -- Suy ra chức vụ từ dữ liệu đã có
 ALTER TABLE Staff ADD PositionID VARCHAR(5) NULL;

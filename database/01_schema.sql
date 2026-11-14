@@ -27,7 +27,7 @@ CREATE TABLE PositionPermission (
     PositionID  VARCHAR(5)  NOT NULL CONSTRAINT FK_PositionPermission_Position REFERENCES Position(PositionID),
     ScreenCode  VARCHAR(20) NOT NULL CONSTRAINT CK_PositionPermission_Screen CHECK (ScreenCode IN
                 ('DASHBOARD','MEMBER','PACKAGE','SUBSCRIPTION','PAYMENT','CHECKIN','TRAINER','PTSESSION',
-                 'STAFF','AREA','EQUIPMENT','MAINTENANCE','CLEANING','ACCOUNT')),
+                 'STAFF','EQUIPMENT','MAINTENANCE')),
     AccessLevel VARCHAR(10) NOT NULL CONSTRAINT CK_PositionPermission_Level CHECK (AccessLevel IN ('VIEW','OWN','MANAGE')),
     CONSTRAINT PK_PositionPermission PRIMARY KEY (PositionID, ScreenCode)
 );
@@ -144,13 +144,6 @@ CREATE TABLE UserAccount (
 CREATE UNIQUE INDEX UQ_UserAccount_Staff   ON UserAccount(StaffID)   WHERE StaffID IS NOT NULL;
 CREATE UNIQUE INDEX UQ_UserAccount_Trainer ON UserAccount(TrainerID) WHERE TrainerID IS NOT NULL;
 
-/* ---------- Cơ sở vật chất ---------- */
-CREATE TABLE Area (
-    AreaID      VARCHAR(10)   NOT NULL CONSTRAINT PK_Area PRIMARY KEY,
-    AreaName    NVARCHAR(100) NOT NULL CONSTRAINT UQ_Area_Name UNIQUE,
-    Floor       NVARCHAR(10)  NOT NULL,
-    Description NVARCHAR(300) NULL
-);
 
 CREATE TABLE PTSession (
     SessionID VARCHAR(10)  NOT NULL CONSTRAINT PK_PTSession PRIMARY KEY,
@@ -159,7 +152,6 @@ CREATE TABLE PTSession (
     Status    NVARCHAR(20) NOT NULL CONSTRAINT CK_PTSession_Status
               CHECK (Status IN (N'Đã đặt', N'Đang diễn ra', N'Hoàn thành', N'Đã hủy')),
     TrainerID VARCHAR(10)  NOT NULL CONSTRAINT FK_PTSession_Trainer REFERENCES Trainer(TrainerID),
-    AreaID    VARCHAR(10)  NOT NULL CONSTRAINT FK_PTSession_Area    REFERENCES Area(AreaID),
     MemberID  VARCHAR(10)  NOT NULL CONSTRAINT FK_PTSession_Member  REFERENCES Member(MemberID),
     CONSTRAINT CK_PTSession_Times CHECK (EndTime > StartTime),
     CONSTRAINT UQ_PTSession_Trainer_Start UNIQUE (TrainerID, StartTime),
@@ -172,8 +164,7 @@ CREATE TABLE Equipment (
     PurchaseValue DECIMAL(15,2) NOT NULL CONSTRAINT CK_Equipment_Value CHECK (PurchaseValue >= 0),
     PurchaseDate  DATE          NOT NULL,
     Status        NVARCHAR(30)  NOT NULL CONSTRAINT CK_Equipment_Status
-                  CHECK (Status IN (N'Tốt', N'Đang bảo trì', N'Cần thay thế linh kiện')),
-    AreaID        VARCHAR(10)   NOT NULL CONSTRAINT FK_Equipment_Area REFERENCES Area(AreaID)
+                  CHECK (Status IN (N'Tốt', N'Đang bảo trì', N'Cần thay thế linh kiện'))
 );
 
 CREATE TABLE MaintenanceAssignment (
@@ -186,16 +177,5 @@ CREATE TABLE MaintenanceAssignment (
     CONSTRAINT PK_MaintenanceAssignment PRIMARY KEY (StaffID, EquipmentID, MaintenanceDate)
 );
 
-CREATE TABLE AreaCleaning (
-    AreaID       VARCHAR(10)  NOT NULL CONSTRAINT FK_AreaCleaning_Area  REFERENCES Area(AreaID),
-    CleaningDate DATE         NOT NULL,
-    ShiftID      VARCHAR(10)  NOT NULL CONSTRAINT FK_AreaCleaning_Shift REFERENCES Shift(ShiftID),
-    StaffID      VARCHAR(10)  NOT NULL CONSTRAINT FK_AreaCleaning_Staff REFERENCES Staff(StaffID),
-    Status       NVARCHAR(20) NOT NULL CONSTRAINT CK_AreaCleaning_Status
-                 CHECK (Status IN (N'Chưa làm', N'Đang thực hiện', N'Đã hoàn thành')),
-    -- Mỗi khu vực, mỗi ca trong ngày chỉ có một người phụ trách
-    CONSTRAINT PK_AreaCleaning PRIMARY KEY (AreaID, CleaningDate, ShiftID)
-);
-GO
 SET NOEXEC OFF;
 GO

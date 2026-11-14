@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 /**
  * Model đại diện cho Lịch tập PT (PTSession)
- * trainerName: chỉ đọc, lấy từ JOIN để hiển thị, không lưu trong bảng này
+ * trainerName, memberName: chỉ đọc, lấy từ JOIN để hiển thị, không lưu trong bảng này
  */
 public class PTSession {
     private String sessionId;
@@ -12,20 +12,18 @@ public class PTSession {
     private LocalDateTime endTime;
     private String status;
     private String trainerId;
-    private String areaId;
     private String memberId;
     private String memberName;
     private String trainerName;
 
     public PTSession() {}
 
-    public PTSession(String sessionId, LocalDateTime startTime, LocalDateTime endTime, String status, String trainerId, String areaId, String memberId) {
+    public PTSession(String sessionId, LocalDateTime startTime, LocalDateTime endTime, String status, String trainerId, String memberId) {
         this.sessionId = sessionId;
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = status;
         this.trainerId = trainerId;
-        this.areaId = areaId;
         this.memberId = memberId;
     }
 
@@ -39,8 +37,6 @@ public class PTSession {
     public void setStatus(String status) { this.status = status; }
     public String getTrainerId() { return trainerId; }
     public void setTrainerId(String trainerId) { this.trainerId = trainerId; }
-    public String getAreaId() { return areaId; }
-    public void setAreaId(String areaId) { this.areaId = areaId; }
     public String getMemberId() { return memberId; }
     public void setMemberId(String memberId) { this.memberId = memberId; }
     public String getMemberName() { return memberName; }

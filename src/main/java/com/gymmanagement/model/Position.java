@@ -5,7 +5,6 @@ public class Position {
     public static final String MANAGER = "QL";
     public static final String RECEPTIONIST = "LT";
     public static final String TECHNICIAN = "KT";
-    public static final String CLEANER = "TV";
 
     private final String positionId;
     private final String positionName;

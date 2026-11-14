@@ -12,17 +12,15 @@ public class Equipment {
     private BigDecimal value;
     private LocalDate purchaseDate;
     private String status;
-    private String areaId;
 
     public Equipment() {}
 
-    public Equipment(String equipmentId, String equipmentName, BigDecimal value, LocalDate purchaseDate, String status, String areaId) {
+    public Equipment(String equipmentId, String equipmentName, BigDecimal value, LocalDate purchaseDate, String status) {
         this.equipmentId = equipmentId;
         this.equipmentName = equipmentName;
         this.value = value;
         this.purchaseDate = purchaseDate;
         this.status = status;
-        this.areaId = areaId;
     }
 
     public String getEquipmentId() { return equipmentId; }
@@ -35,8 +33,6 @@ public class Equipment {
     public void setPurchaseDate(LocalDate purchaseDate) { this.purchaseDate = purchaseDate; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public String getAreaId() { return areaId; }
-    public void setAreaId(String areaId) { this.areaId = areaId; }
 
     @Override
     public String toString() {
