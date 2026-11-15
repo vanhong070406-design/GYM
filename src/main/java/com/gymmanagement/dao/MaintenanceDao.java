@@ -1,6 +1,9 @@
 package com.gymmanagement.dao;
 
+import com.gymmanagement.model.Equipment;
 import com.gymmanagement.model.MaintenanceAssignment;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -18,34 +21,37 @@ public class MaintenanceDao {
                 });
     }
 
-    /** Lưu phân công; nếu phiếu ở trạng thái "Đang bảo trì" thì cập nhật luôn trạng thái thiết bị trong cùng giao dịch. */
+    /** Trạng thái phiếu đã xong; mọi trạng thái khác (Đang bảo trì, Chờ linh kiện) là phiếu đang mở. */
+    public static final String STATUS_DONE = MaintenanceAssignment.STATUS_DONE;
+
+    /**
+     * Lưu phân công, hoàn thành ngay thì cập nhật thiết bị trong cùng giao dịch.
+     * Phiếu đang mở không đổi trạng thái thiết bị: máy vẫn giữ "Cần thay thế linh kiện" / "Tới hạn bảo trì định kỳ".
+     */
     public void insert(MaintenanceAssignment m) {
         Jdbc.inTransaction(c -> {
             Jdbc.update(c, "INSERT INTO MaintenanceAssignment (StaffID, EquipmentID, MaintenanceDate, Note, Status) VALUES (?,?,?,?,?)",
                     m.getStaffId(), m.getEquipmentId(), m.getMaintenanceDate(), m.getNote(), m.getStatus());
-            if ("Đang bảo trì".equals(m.getStatus())) {
-                Jdbc.update(c, "UPDATE Equipment SET Status = N'Đang bảo trì' WHERE EquipmentID = ?", m.getEquipmentId());
-            }
+            if (STATUS_DONE.equals(m.getStatus())) markGoodIfNoOpenTicket(c, m.getEquipmentId());
         });
     }
 
-    /**
-     * Cập nhật nội dung và trạng thái phiếu. Khi phiếu vừa chuyển sang hoàn thành và thiết bị không còn phiếu
-     * nào đang mở thì thiết bị trở lại "Tốt"; khi phiếu vừa chuyển sang đang bảo trì thì thiết bị cũng vậy.
-     */
+    /** Cập nhật nội dung và trạng thái phiếu; phiếu vừa chuyển sang hoàn thành thì cập nhật thiết bị. */
     public void update(MaintenanceAssignment m, String previousStatus) {
         Jdbc.inTransaction(c -> {
             Jdbc.update(c, "UPDATE MaintenanceAssignment SET Note=?, Status=? WHERE StaffID=? AND EquipmentID=? AND MaintenanceDate=?",
                     m.getNote(), m.getStatus(), m.getStaffId(), m.getEquipmentId(), m.getMaintenanceDate());
-            if (m.getStatus().equals(previousStatus)) return;
-            if ("Đang bảo trì".equals(m.getStatus())) {
-                Jdbc.update(c, "UPDATE Equipment SET Status = N'Đang bảo trì' WHERE EquipmentID = ?", m.getEquipmentId());
-            } else if ("Đã hoàn thành".equals(m.getStatus())) {
-                Jdbc.update(c, "UPDATE Equipment SET Status = N'Tốt' WHERE EquipmentID = ? AND NOT EXISTS "
-                        + "(SELECT 1 FROM MaintenanceAssignment WHERE EquipmentID = ? AND Status <> N'Đã hoàn thành')",
-                        m.getEquipmentId(), m.getEquipmentId());
+            if (STATUS_DONE.equals(m.getStatus()) && !STATUS_DONE.equals(previousStatus)) {
+                markGoodIfNoOpenTicket(c, m.getEquipmentId());
             }
         });
+    }
+
+    /** Thiết bị về "Hoạt động tốt" khi không còn phiếu bảo trì nào đang mở. */
+    private static void markGoodIfNoOpenTicket(Connection c, String equipmentId) throws SQLException {
+        Jdbc.update(c, "UPDATE Equipment SET Status = ? WHERE EquipmentID = ? AND NOT EXISTS "
+                        + "(SELECT 1 FROM MaintenanceAssignment WHERE EquipmentID = ? AND Status <> ?)",
+                Equipment.STATUS_GOOD, equipmentId, equipmentId, STATUS_DONE);
     }
 
     public void delete(String staffId, String equipmentId, LocalDate date) {

@@ -139,11 +139,11 @@ INSERT INTO PTSession (SessionID, StartTime, EndTime, Status, TrainerID, MemberI
  ('SES005', DATEADD(MINUTE,1110,@now), DATEADD(HOUR, 20,@now),  N'Đã đặt',       'TR001', 'MB005');
 
 INSERT INTO Equipment (EquipmentID, EquipmentName, PurchaseValue, PurchaseDate, Status) VALUES
- ('EQ01', N'Máy chạy bộ Technogym Skillrun', 85000000, '2023-01-10', N'Tốt'),
- ('EQ02', N'Xe đạp tập LifeFitness IC7',     45000000, '2023-01-15', N'Tốt'),
- ('EQ03', N'Khung gánh tạ Smith Machine',    38000000, '2023-02-01', N'Tốt'),
- ('EQ04', N'Ghế đẩy ngực bằng Impulse',      18000000, '2023-02-10', N'Đang bảo trì'),
- ('EQ05', N'Máy kéo xô đôi Cable Crossover', 55000000, '2023-03-05', N'Tốt'),
+ ('EQ01', N'Máy chạy bộ Technogym Skillrun', 85000000, '2023-01-10', N'Hoạt động tốt'),
+ ('EQ02', N'Xe đạp tập LifeFitness IC7',     45000000, '2023-01-15', N'Hoạt động tốt'),
+ ('EQ03', N'Khung gánh tạ Smith Machine',    38000000, '2023-02-01', N'Hoạt động tốt'),
+ ('EQ04', N'Ghế đẩy ngực bằng Impulse',      18000000, '2023-02-10', N'Tới hạn bảo trì định kỳ'),
+ ('EQ05', N'Máy kéo xô đôi Cable Crossover', 55000000, '2023-03-05', N'Hoạt động tốt'),
  ('EQ06', N'Máy đạp đùi Leg Press 45 độ',    42000000, '2023-03-12', N'Cần thay thế linh kiện');
 
 INSERT INTO MaintenanceAssignment (StaffID, EquipmentID, MaintenanceDate, Note, Status) VALUES

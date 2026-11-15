@@ -7,6 +7,7 @@ import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Shift;
 import com.gymmanagement.model.Staff;
 import com.gymmanagement.model.UserSession;
+import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.StaffView;
 import com.gymmanagement.view.UITheme;
 
@@ -14,10 +15,17 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Controller điều phối Quản lý nhân viên
@@ -32,6 +40,7 @@ public class StaffController {
     public StaffController(StaffView view, UserSession session) {
         this.view = view;
         this.session = session;
+        view.setCurrentStaffId(session.getStaffId());
         initListeners();
         reload();
     }
@@ -47,47 +56,42 @@ public class StaffController {
 
         view.getBtnAdd().addActionListener(e -> showStaffDialog(null));
 
-        view.getBtnEdit().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một nhân viên để sửa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String stId = (String) view.getTableModel().getValueAt(row, 0);
-            Staff staff = findStaffById(stId);
-            if (staff != null) {
-                showStaffDialog(staff);
-            }
-        });
-
-        view.getBtnDelete().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một nhân viên cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String stId = (String) view.getTableModel().getValueAt(row, 0);
-            String stName = (String) view.getTableModel().getValueAt(row, 1);
-
-            if (stId.equalsIgnoreCase(session.getStaffId())) {
-                JOptionPane.showMessageDialog(view, "Không thể xóa nhân viên đang đăng nhập!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc muốn xóa nhân viên: " + stName + " (" + stId + ") không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(stId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: nửa trái là biểu tượng sửa, nửa phải là biểu tượng xóa
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                ActionColumn.Action action = view.getActionColumn().actionAt(e.getPoint());
+                if (action == null || e.getClickCount() != 1) return;
+                int row = view.getTable().rowAtPoint(e.getPoint());
+                String stId = (String) view.getTableModel().getValueAt(row, 0);
+                if (action == ActionColumn.Action.EDIT) {
+                    Staff staff = findStaffById(stId);
+                    if (staff != null) showStaffDialog(staff);
+                } else if (action == ActionColumn.Action.DELETE) {
+                    confirmDelete(stId, (String) view.getTableModel().getValueAt(row, 1));
+                }
             }
         });
+    }
+
+    private void confirmDelete(String stId, String stName) {
+        if (stId.equalsIgnoreCase(session.getStaffId())) {
+            JOptionPane.showMessageDialog(view, "Không thể xóa nhân viên đang đăng nhập!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc muốn xóa nhân viên: " + stName + " (" + stId + ") không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (!DbAction.run(view, () -> dao.delete(stId))) return;
+            loadData(fetchAll());
+            JOptionPane.showMessageDialog(view, "Xóa nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private List<Staff> fetchAll() {
@@ -110,9 +114,11 @@ public class StaffController {
                     s.getShift().toString(),
                     Formats.text(s.getHireDate()),
                     s.getManagerId() == null ? "None" : s.getManagerId(),
-                    s.getPositionName()
+                    s.getPositionName(),
+                    "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setCount(list.size());
     }
 
     private void handleSearch() {
@@ -172,7 +178,7 @@ public class StaffController {
         cbPosition.setBackground(Color.WHITE);
 
         JTextField txtHireDate = UITheme.createTextField(15);
-        JTextField txtManagerId = UITheme.createTextField(15);
+        JComboBox<ManagerOption> cbManager = createManagerCombo(fetchAll(), staffToEdit);
 
         if (isEdit) {
             txtId.setText(staffToEdit.getStaffId());
@@ -187,7 +193,6 @@ public class StaffController {
                 }
             }
             txtHireDate.setText(Formats.text(staffToEdit.getHireDate()));
-            txtManagerId.setText(Formats.nullToEmpty(staffToEdit.getManagerId()));
             for (int i = 0; i < cbPosition.getItemCount(); i++) {
                 if (cbPosition.getItemAt(i).getPositionId().equals(staffToEdit.getPositionId())) {
                     cbPosition.setSelectedIndex(i);
@@ -200,7 +205,6 @@ public class StaffController {
             txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtSalary.setText("8000000");
             txtHireDate.setText(LocalDate.now().toString());
-            txtManagerId.setText("ST001");
         }
 
         addFormRow(panel, gbc, 0, "Mã nhân viên (*):", txtId);
@@ -209,7 +213,7 @@ public class StaffController {
         addFormRow(panel, gbc, 3, "Mức lương (VNĐ) (*):", txtSalary);
         addFormRow(panel, gbc, 4, "Ca làm việc (*):", cbShift);
         addFormRow(panel, gbc, 5, "Ngày tuyển dụng (*):", txtHireDate);
-        addFormRow(panel, gbc, 6, "Mã quản lý:", txtManagerId);
+        addFormRow(panel, gbc, 6, "Mã quản lý:", cbManager);
         addFormRow(panel, gbc, 7, "Chức vụ (*):", cbPosition);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
@@ -227,11 +231,16 @@ public class StaffController {
             Shift shift = (Shift) cbShift.getSelectedItem();
             Position position = (Position) cbPosition.getSelectedItem();
             String hireDateText = txtHireDate.getText().trim();
-            String managerText = txtManagerId.getText().trim();
-            String managerId = managerText.isEmpty() || managerText.equalsIgnoreCase("None") ? null : managerText;
+            ManagerOption manager = (ManagerOption) cbManager.getSelectedItem();
+            String managerId = manager == null ? null : manager.id();
 
             if (id.isEmpty() || name.isEmpty() || phone.isEmpty() || salaryStr.isEmpty() || hireDateText.isEmpty() || shift == null || position == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường bắt buộc (*)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (id.equalsIgnoreCase(managerId)) {
+                JOptionPane.showMessageDialog(dialog, "Nhân viên không thể tự quản lý mình.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -249,6 +258,19 @@ public class StaffController {
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(dialog, "Mức lương phải là số hợp lệ!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
+            }
+
+            // Người đang quản lý nhân viên khác phải giữ chức vụ Quản lý, nếu không cấp dưới sẽ đứng tên một người không phải quản lý
+            if (isEdit && !MANAGER_POSITION.equals(position.getPositionId())) {
+                List<String> reports = DbAction.fetch(dialog, () -> dao.findDirectReportIds(id), null);
+                if (reports == null) return;
+                if (!reports.isEmpty()) {
+                    JOptionPane.showMessageDialog(dialog,
+                            name + " đang quản lý " + reports.size() + " nhân viên (" + String.join(", ", reports) + ").\n"
+                                    + "Hãy chuyển họ sang quản lý khác trước khi đổi chức vụ.",
+                            "Không thể đổi chức vụ", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
             }
 
             if (isEdit) {
@@ -282,6 +304,68 @@ public class StaffController {
 
         dialog.setContentPane(panel);
         dialog.setVisible(true);
+    }
+
+    /** Một lựa chọn trong ô Mã quản lý; id = null nghĩa là không có quản lý. */
+    private record ManagerOption(String id, String name) {
+        @Override
+        public String toString() {
+            return id == null ? "(Không có)" : id + " – " + name;
+        }
+    }
+
+    private static final String MANAGER_POSITION = "QL";
+
+    /**
+     * Ô chọn quản lý chỉ gồm nhân viên có chức vụ Quản lý, lấy từ bảng Staff nên không thể chọn mã không tồn tại.
+     * Khi sửa, bỏ chính nhân viên đó và toàn bộ cấp dưới của họ, vì chọn những người này sẽ tạo vòng lặp quản lý.
+     * Không lo quản lý hiện tại bị mất khỏi danh sách: người đang có cấp dưới không đổi được khỏi chức vụ Quản lý.
+     * Khi thêm mới, chọn sẵn quản lý đầu tiên.
+     */
+    private static JComboBox<ManagerOption> createManagerCombo(List<Staff> allStaff, Staff editing) {
+        Set<String> excluded = editing == null ? Set.of() : selfAndSubordinates(allStaff, editing.getStaffId());
+
+        JComboBox<ManagerOption> cb = new JComboBox<>();
+        cb.addItem(new ManagerOption(null, null));
+        for (Staff s : allStaff) {
+            if (MANAGER_POSITION.equals(s.getPositionId()) && !excluded.contains(s.getStaffId())) {
+                cb.addItem(new ManagerOption(s.getStaffId(), s.getFullName()));
+            }
+        }
+        cb.setFont(UITheme.FONT_REGULAR);
+        cb.setBackground(Color.WHITE);
+
+        String selected = editing != null ? editing.getManagerId() : defaultManagerId(allStaff);
+        for (int i = 0; i < cb.getItemCount(); i++) {
+            if (Objects.equals(cb.getItemAt(i).id(), selected)) {
+                cb.setSelectedIndex(i);
+                break;
+            }
+        }
+        return cb;
+    }
+
+    /** Mã của rootId cùng mọi người do rootId quản lý trực tiếp hoặc gián tiếp. */
+    private static Set<String> selfAndSubordinates(List<Staff> allStaff, String rootId) {
+        Set<String> result = new HashSet<>();
+        Deque<String> queue = new ArrayDeque<>();
+        result.add(rootId);
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            String boss = queue.poll();
+            for (Staff s : allStaff) {
+                if (boss.equals(s.getManagerId()) && result.add(s.getStaffId())) queue.add(s.getStaffId());
+            }
+        }
+        return result;
+    }
+
+    private static String defaultManagerId(List<Staff> allStaff) {
+        return allStaff.stream()
+                .filter(s -> MANAGER_POSITION.equals(s.getPositionId()))
+                .map(Staff::getStaffId)
+                .findFirst()
+                .orElse(null);
     }
 
     private void addFormRow(JPanel panel, GridBagConstraints gbc, int row, String label, JComponent comp) {

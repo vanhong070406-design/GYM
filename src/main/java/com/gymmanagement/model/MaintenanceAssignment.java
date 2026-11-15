@@ -1,12 +1,19 @@
 package com.gymmanagement.model;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Model đại diện cho Phân công bảo trì; khóa chính (staffId, equipmentId, maintenanceDate)
  * staffName, equipmentName: chỉ đọc, lấy từ JOIN để hiển thị, không lưu trong bảng này
  */
 public class MaintenanceAssignment {
+    // Trạng thái phiếu, phải khớp ràng buộc CK_Maintenance_Status trong database/01_schema.sql
+    public static final String STATUS_IN_PROGRESS = "Đang bảo trì";
+    public static final String STATUS_WAITING_PARTS = "Chờ linh kiện";
+    public static final String STATUS_DONE = "Đã hoàn thành";
+    public static final List<String> STATUSES = List.of(STATUS_IN_PROGRESS, STATUS_WAITING_PARTS, STATUS_DONE);
+
     private String staffId;
     private String equipmentId;
     private LocalDate maintenanceDate;

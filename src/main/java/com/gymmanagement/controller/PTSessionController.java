@@ -7,10 +7,13 @@ import com.gymmanagement.model.Member;
 import com.gymmanagement.model.PTSession;
 import com.gymmanagement.model.Trainer;
 import com.gymmanagement.model.UserSession;
+import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.MainView;
 import com.gymmanagement.view.PTSessionView;
 import com.gymmanagement.view.UITheme;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -29,6 +32,10 @@ public class PTSessionController {
     private final PTSessionDao dao = new PTSessionDao();
     private final TrainerDao trainerDao = new TrainerDao();
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    /** Mã HLV đang xem trên trang chi tiết; null = lịch tập của tất cả HLV. */
+    private String trainerFilter;
+    /** Gọi sau mỗi lần thêm/sửa/xóa lịch, để trang chi tiết cập nhật thống kê. */
+    private Runnable onChange = () -> {};
 
     public PTSessionController(PTSessionView view, UserSession session) {
         this.view = view;
@@ -49,51 +56,62 @@ public class PTSessionController {
 
         view.getBtnAdd().addActionListener(e -> showSessionDialog(null));
 
-        view.getBtnEdit().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một lịch tập để sửa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String sesId = (String) view.getTableModel().getValueAt(row, 0);
-            PTSession session = findSessionById(sesId);
-            if (session != null) {
-                showSessionDialog(session);
-            }
-        });
-
-        view.getBtnDelete().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một lịch tập cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String sesId = (String) view.getTableModel().getValueAt(row, 0);
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc muốn xóa lịch tập: " + sesId + " không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(sesId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa lịch tập PT thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: bút chì để sửa, thùng rác để xóa (HLV chỉ có bút chì)
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                ActionColumn.Action action = view.getActionColumn().actionAt(e.getPoint());
+                if (action == null || e.getClickCount() != 1) return;
+                String sesId = (String) view.getTableModel().getValueAt(view.getTable().rowAtPoint(e.getPoint()), 0);
+                if (action == ActionColumn.Action.EDIT) {
+                    PTSession ses = findSessionById(sesId);
+                    if (ses != null) showSessionDialog(ses);
+                } else if (action == ActionColumn.Action.DELETE) {
+                    confirmDelete(sesId);
+                }
             }
         });
+    }
+
+    private void confirmDelete(String sesId) {
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc muốn xóa lịch tập: " + sesId + " không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (!DbAction.run(view, () -> dao.delete(sesId))) return;
+            handleFilter();
+            onChange.run();
+            JOptionPane.showMessageDialog(view, "Xóa lịch tập PT thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private List<PTSession> fetchAll() {
         List<PTSession> all = DbAction.fetch(view, dao::findAll, List.of());
-        if (!session.isOwnOnly(MainView.CARD_PTSESSION)) return all;
-        // HLV chỉ thấy buổi tập của mình
-        return all.stream().filter(s -> s.getTrainerId().equals(session.getTrainerId())).toList();
+        // HLV chỉ thấy buổi tập của mình, dù trang đang mở là của ai
+        String trainerId = session.isOwnOnly(MainView.CARD_PTSESSION) ? session.getTrainerId() : trainerFilter;
+        if (trainerId == null) return all;
+        return all.stream().filter(s -> s.getTrainerId().equalsIgnoreCase(trainerId)).toList();
     }
 
     public void reload() {
         handleFilter();
+    }
+
+    /** Chuyển bảng sang lịch của một HLV (null = tất cả HLV), xóa bộ lọc cũ. */
+    public void showTrainer(String trainerId) {
+        trainerFilter = trainerId;
+        view.getTxtSearch().setText("");
+        view.getCbFilterStatus().setSelectedIndex(0);
+        view.setTrainerColumnsVisible(trainerId == null);
+        reload();
+    }
+
+    public void setOnChange(Runnable onChange) {
+        this.onChange = onChange;
     }
 
     public void loadData(List<PTSession> list) {
@@ -108,9 +126,11 @@ public class PTSessionController {
                     s.getTrainerId(),
                     s.getTrainerName(),
                     s.getMemberId(),
-                    s.getMemberName()
+                    s.getMemberName(),
+                    "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setCount(list.size());
     }
 
     private void handleFilter() {
@@ -212,6 +232,13 @@ public class PTSessionController {
             }
         } else {
             txtId.setText(DbAction.fetch(view, dao::nextId, ""));
+            // Đặt lịch từ trang của một HLV thì chọn sẵn HLV đó
+            for (int i = 0; trainerFilter != null && i < cbTrainer.getItemCount(); i++) {
+                if (cbTrainer.getItemAt(i).getTrainerId().equalsIgnoreCase(trainerFilter)) {
+                    cbTrainer.setSelectedIndex(i);
+                    break;
+                }
+            }
             LocalDateTime now = LocalDateTime.now();
             txtStart.setText(now.format(dtf));
             txtEnd.setText(now.plusHours(1).plusMinutes(30).format(dtf));
@@ -268,7 +295,8 @@ public class PTSessionController {
                 JOptionPane.showMessageDialog(dialog, "Đặt lịch tập PT mới thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(fetchAll());
+            handleFilter();
+            onChange.run();
             dialog.dispose();
         });
 

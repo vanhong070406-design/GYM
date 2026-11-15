@@ -16,3 +16,6 @@ sources.txt
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Mat khau sa cua container SQL Server tren Docker (setup_database.sh)
+.mssql_sa_password

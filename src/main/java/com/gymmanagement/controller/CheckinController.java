@@ -8,6 +8,7 @@ import com.gymmanagement.model.Member;
 import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Staff;
 import com.gymmanagement.model.UserSession;
+import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.CheckinView;
 import com.gymmanagement.view.UITheme;
 
@@ -15,6 +16,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -51,48 +54,46 @@ public class CheckinController {
         view.getBtnCheckin().addActionListener(e -> showCheckinDialog());
 
         // Check-out
-        view.getBtnCheckout().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một lượt check-in để check-out!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String checkinId = (String) view.getTableModel().getValueAt(row, 0);
-            Checkin c = findCheckinById(checkinId);
-            if (c != null) {
-                if (c.getCheckoutTime() != null) {
-                    JOptionPane.showMessageDialog(view, "Lượt check-in này đã được check-out trước đó (" + Formats.text(c.getCheckoutTime()) + ")!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-                    return;
-                }
-                if (!DbAction.run(view, () -> dao.checkout(checkinId, LocalDateTime.now()))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Check-out thành công cho hội viên: " + c.getMemberId(), "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: check-out (chỉ bấm được khi chưa ra) và xóa
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                ActionColumn.Action action = view.getActionColumn().actionAt(e.getPoint());
+                if (action == null || e.getClickCount() != 1) return;
+                String checkinId = (String) view.getTableModel().getValueAt(view.getTable().rowAtPoint(e.getPoint()), 0);
+                if (action == ActionColumn.Action.CHECKOUT) checkout(checkinId);
+                else if (action == ActionColumn.Action.DELETE) confirmDelete(checkinId);
             }
         });
+    }
 
-        // Xóa
-        view.getBtnDelete().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một lượt check-in cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+    private void checkout(String checkinId) {
+        Checkin c = findCheckinById(checkinId);
+        if (c == null) return;
+        // Bảng có thể đã cũ (máy khác vừa check-out lượt này), nên vẫn kiểm tra lại với dữ liệu mới nhất
+        if (c.getCheckoutTime() != null) {
+            JOptionPane.showMessageDialog(view, "Lượt check-in này đã được check-out trước đó (" + Formats.text(c.getCheckoutTime()) + ")!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            loadData(fetchAll());
+            return;
+        }
+        if (!DbAction.run(view, () -> dao.checkout(checkinId, LocalDateTime.now()))) return;
+        loadData(fetchAll());
+        JOptionPane.showMessageDialog(view, "Check-out thành công cho hội viên: " + c.getMemberId(), "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+    }
 
-            String checkinId = (String) view.getTableModel().getValueAt(row, 0);
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc muốn xóa lịch sử check-in: " + checkinId + " không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION
-            );
+    private void confirmDelete(String checkinId) {
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc muốn xóa lịch sử check-in: " + checkinId + " không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION
+        );
 
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(checkinId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa lượt check-in thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (!DbAction.run(view, () -> dao.delete(checkinId))) return;
+            loadData(fetchAll());
+            JOptionPane.showMessageDialog(view, "Xóa lượt check-in thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private List<Checkin> fetchAll() {
@@ -112,10 +113,12 @@ public class CheckinController {
                     c.getMemberId(),
                     c.getMemberName(),
                     Formats.text(c.getCheckinTime()),
-                    c.getCheckoutTime() == null ? Formats.NO_CHECKOUT : Formats.text(c.getCheckoutTime()),
-                    c.getReceptionistId()
+                    c.getCheckoutTime() == null ? CheckinView.STILL_INSIDE : Formats.text(c.getCheckoutTime()),
+                    c.getReceptionistId(),
+                    "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setCount(list.size(), (int) list.stream().filter(c -> c.getCheckoutTime() == null).count());
     }
 
     private void handleSearch() {

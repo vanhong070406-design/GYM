@@ -164,7 +164,7 @@ CREATE TABLE Equipment (
     PurchaseValue DECIMAL(15,2) NOT NULL CONSTRAINT CK_Equipment_Value CHECK (PurchaseValue >= 0),
     PurchaseDate  DATE          NOT NULL,
     Status        NVARCHAR(30)  NOT NULL CONSTRAINT CK_Equipment_Status
-                  CHECK (Status IN (N'Tốt', N'Đang bảo trì', N'Cần thay thế linh kiện'))
+                  CHECK (Status IN (N'Hoạt động tốt', N'Cần thay thế linh kiện', N'Tới hạn bảo trì định kỳ'))
 );
 
 CREATE TABLE MaintenanceAssignment (

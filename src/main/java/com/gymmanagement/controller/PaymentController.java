@@ -8,6 +8,7 @@ import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Staff;
 import com.gymmanagement.model.UserSession;
 import com.gymmanagement.model.Subscription;
+import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.PaymentView;
 import com.gymmanagement.view.UITheme;
 
@@ -15,6 +16,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -49,27 +52,29 @@ public class PaymentController {
 
         view.getBtnAdd().addActionListener(e -> showPaymentDialog());
 
-        view.getBtnDelete().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một hóa đơn cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String payId = (String) view.getTableModel().getValueAt(row, 0);
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc muốn xóa hóa đơn thanh toán: " + payId + " không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(payId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa hóa đơn thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: hóa đơn không sửa được, chỉ có thùng rác để xóa
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (view.getActionColumn().actionAt(e.getPoint()) != ActionColumn.Action.DELETE || e.getClickCount() != 1) return;
+                confirmDelete((String) view.getTableModel().getValueAt(view.getTable().rowAtPoint(e.getPoint()), 0));
             }
         });
+    }
+
+    private void confirmDelete(String payId) {
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc muốn xóa hóa đơn thanh toán: " + payId + " không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (!DbAction.run(view, () -> dao.delete(payId))) return;
+            loadData(fetchAll());
+            JOptionPane.showMessageDialog(view, "Xóa hóa đơn thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private List<Payment> fetchAll() {
@@ -90,9 +95,11 @@ public class PaymentController {
                     p.getPaymentMethod(),
                     String.format("%,.0f", p.getAmount()),
                     p.getSubscriptionId(),
-                    p.getReceptionistId()
+                    p.getReceptionistId(),
+                    "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setCount(list.size());
     }
 
     private void handleFilter() {

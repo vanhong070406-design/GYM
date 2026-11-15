@@ -2,11 +2,18 @@ package com.gymmanagement.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Model đại diện cho Thiết bị (Equipment)
  */
 public class Equipment {
+    // Trạng thái thiết bị, phải khớp ràng buộc CK_Equipment_Status trong database/01_schema.sql
+    public static final String STATUS_GOOD = "Hoạt động tốt";
+    public static final String STATUS_NEEDS_PARTS = "Cần thay thế linh kiện";
+    public static final String STATUS_MAINTENANCE_DUE = "Tới hạn bảo trì định kỳ";
+    public static final List<String> STATUSES = List.of(STATUS_GOOD, STATUS_NEEDS_PARTS, STATUS_MAINTENANCE_DUE);
+
     private String equipmentId;
     private String equipmentName;
     private BigDecimal value;

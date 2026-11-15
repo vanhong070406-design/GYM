@@ -2,6 +2,7 @@ package com.gymmanagement.controller;
 
 import com.gymmanagement.dao.PackageDao;
 import com.gymmanagement.model.PackageModel;
+import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.PackageView;
 import com.gymmanagement.view.UITheme;
 
@@ -9,6 +10,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -36,42 +39,37 @@ public class PackageController {
 
         view.getBtnAdd().addActionListener(e -> showPackageDialog(null));
 
-        view.getBtnEdit().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một gói tập để chỉnh sửa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String pkgId = (String) view.getTableModel().getValueAt(row, 0);
-            PackageModel pkg = findPackageById(pkgId);
-            if (pkg != null) {
-                showPackageDialog(pkg);
-            }
-        });
-
-        view.getBtnDelete().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một gói tập cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String pkgId = (String) view.getTableModel().getValueAt(row, 0);
-            String pkgName = (String) view.getTableModel().getValueAt(row, 1);
-
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc muốn xóa gói tập: " + pkgName + " (" + pkgId + ") không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(pkgId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa gói tập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: bút chì để sửa, thùng rác để xóa
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                ActionColumn.Action action = view.getActionColumn().actionAt(e.getPoint());
+                if (action == null || e.getClickCount() != 1) return;
+                int row = view.getTable().rowAtPoint(e.getPoint());
+                String pkgId = (String) view.getTableModel().getValueAt(row, 0);
+                if (action == ActionColumn.Action.EDIT) {
+                    PackageModel pkg = findPackageById(pkgId);
+                    if (pkg != null) showPackageDialog(pkg);
+                } else if (action == ActionColumn.Action.DELETE) {
+                    confirmDelete(pkgId, (String) view.getTableModel().getValueAt(row, 1));
+                }
             }
         });
+    }
+
+    private void confirmDelete(String pkgId, String pkgName) {
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc muốn xóa gói tập: " + pkgName + " (" + pkgId + ") không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (!DbAction.run(view, () -> dao.delete(pkgId))) return;
+            loadData(fetchAll());
+            JOptionPane.showMessageDialog(view, "Xóa gói tập thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private List<PackageModel> fetchAll() {
@@ -91,9 +89,11 @@ public class PackageController {
                     p.getPackageName(),
                     String.format("%,.0f", p.getPrice()),
                     p.getDuration(),
-                    Formats.nullToEmpty(p.getDescription())
+                    Formats.nullToEmpty(p.getDescription()),
+                    "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setCount(list.size());
     }
 
     private void handleSearch() {

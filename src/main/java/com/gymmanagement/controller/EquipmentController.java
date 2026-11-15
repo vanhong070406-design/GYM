@@ -5,12 +5,15 @@ import com.gymmanagement.model.Equipment;
 import com.gymmanagement.view.EquipmentView;
 import com.gymmanagement.view.UITheme;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.TableModelEvent;
 import javax.swing.table.DefaultTableModel;
 
 /**
@@ -19,6 +22,10 @@ import javax.swing.table.DefaultTableModel;
 public class EquipmentController {
     private final EquipmentView view;
     private final EquipmentDao dao = new EquipmentDao();
+    /** Thiết bị đang hiện trong bảng, để biết trạng thái cũ khi phải hoàn tác. */
+    private List<Equipment> shown = List.of();
+    /** Đang trả ô trạng thái về giá trị cũ, bỏ qua sự kiện do chính việc này sinh ra. */
+    private boolean reverting;
 
     public EquipmentController(EquipmentView view) {
         this.view = view;
@@ -38,42 +45,60 @@ public class EquipmentController {
 
         view.getBtnAdd().addActionListener(e -> showEquipmentDialog(null));
 
-        view.getBtnEdit().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một thiết bị để sửa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String eqId = (String) view.getTableModel().getValueAt(row, 0);
-            Equipment eq = findEquipmentById(eqId);
-            if (eq != null) {
-                showEquipmentDialog(eq);
-            }
-        });
-
-        view.getBtnDelete().addActionListener(e -> {
-            int row = view.getTable().getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một thiết bị cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String eqId = (String) view.getTableModel().getValueAt(row, 0);
-            String eqName = (String) view.getTableModel().getValueAt(row, 1);
-
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc muốn xóa thiết bị: " + eqName + " (" + eqId + ") không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(eqId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: nửa trái là biểu tượng sửa, nửa phải là biểu tượng xóa
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                JTable table = view.getTable();
+                int row = table.rowAtPoint(e.getPoint());
+                int col = table.columnAtPoint(e.getPoint());
+                if (row < 0 || col < 0 || table.convertColumnIndexToModel(col) != EquipmentView.ACTION_COLUMN) return;
+                String eqId = (String) view.getTableModel().getValueAt(row, 0);
+                if (view.isEditHalf(e.getPoint())) {
+                    Equipment eq = findEquipmentById(eqId);
+                    if (eq != null) showEquipmentDialog(eq);
+                } else {
+                    confirmDelete(eqId, (String) view.getTableModel().getValueAt(row, 1));
+                }
             }
         });
+
+        // Đổi trạng thái bằng combobox trong bảng thì lưu ngay; lưu lỗi thì trả ô về giá trị cũ
+        view.getTableModel().addTableModelListener(e -> {
+            if (reverting || e.getType() != TableModelEvent.UPDATE || e.getColumn() != EquipmentView.STATUS_COLUMN) return;
+            int row = e.getFirstRow();
+            String eqId = (String) view.getTableModel().getValueAt(row, 0);
+            String newStatus = (String) view.getTableModel().getValueAt(row, EquipmentView.STATUS_COLUMN);
+            // Chờ bảng đóng combobox xong mới lưu, để hộp thoại lỗi (nếu có) không hiện giữa lúc đang sửa ô
+            SwingUtilities.invokeLater(() -> saveStatus(row, eqId, newStatus));
+        });
+    }
+
+    private void saveStatus(int row, String eqId, String newStatus) {
+        Equipment eq = shown.stream().filter(x -> x.getEquipmentId().equals(eqId)).findFirst().orElse(null);
+        if (eq == null || newStatus.equals(eq.getStatus())) return;
+        if (DbAction.run(view, () -> dao.updateStatus(eqId, newStatus))) {
+            eq.setStatus(newStatus);
+            // Đang lọc theo trạng thái thì thiết bị vừa đổi không còn khớp, tải lại để nó biến khỏi danh sách
+            if (!"Tất cả".equals(view.getCbFilterStatus().getSelectedItem())) handleFilter();
+        } else {
+            reverting = true;
+            view.getTableModel().setValueAt(eq.getStatus(), row, EquipmentView.STATUS_COLUMN);
+            reverting = false;
+        }
+    }
+
+    private void confirmDelete(String eqId, String eqName) {
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc muốn xóa thiết bị: " + eqName + " (" + eqId + ") không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION
+        );
+        if (confirm != JOptionPane.YES_OPTION) return;
+        if (!DbAction.run(view, () -> dao.delete(eqId))) return;
+        handleFilter();
+        JOptionPane.showMessageDialog(view, "Xóa thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private List<Equipment> fetchAll() {
@@ -85,6 +110,8 @@ public class EquipmentController {
     }
 
     public void loadData(List<Equipment> list) {
+        shown = list;
+        view.setCount(list.size());
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
         for (Equipment eq : list) {
@@ -93,7 +120,8 @@ public class EquipmentController {
                     eq.getEquipmentName(),
                     String.format("%,.0f", eq.getValue()),
                     Formats.text(eq.getPurchaseDate()),
-                    eq.getStatus()
+                    eq.getStatus(),
+                    ""
             });
         }
     }
@@ -146,7 +174,7 @@ public class EquipmentController {
         JTextField txtValue = UITheme.createTextField(15);
         JTextField txtPurchaseDate = UITheme.createTextField(15);
 
-        JComboBox<String> cbStatus = new JComboBox<>(new String[]{"Tốt", "Đang bảo trì", "Cần thay thế linh kiện"});
+        JComboBox<String> cbStatus = new JComboBox<>(Equipment.STATUSES.toArray(new String[0]));
         cbStatus.setFont(UITheme.FONT_REGULAR);
         cbStatus.setBackground(Color.WHITE);
 
@@ -217,7 +245,7 @@ public class EquipmentController {
                 JOptionPane.showMessageDialog(dialog, "Thêm mới thiết bị thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
-            loadData(fetchAll());
+            handleFilter();
             dialog.dispose();
         });
 

@@ -3,6 +3,8 @@ package com.gymmanagement.controller;
 import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.LoginView;
 import com.gymmanagement.view.MainView;
+import com.gymmanagement.view.PTSessionView;
+import com.gymmanagement.view.TrainerView;
 import java.awt.Cursor;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -52,38 +54,58 @@ public class MainController {
 
     private void initScreens() {
         screen(MainView.CARD_MEMBER, "QUẢN LÝ HỘI VIÊN", () -> {
-            buttons(MainView.CARD_MEMBER, view.getMemberView().getBtnAdd(), view.getMemberView().getBtnEdit(), view.getMemberView().getBtnDelete());
+            // Sửa/xóa nằm ở cột Thao tác của từng dòng; không có quyền quản lý thì ẩn cột đó và nút thêm
+            view.getMemberView().setManageable(session.canManage(MainView.CARD_MEMBER));
             return new MemberController(view.getMemberView())::reload;
         });
         screen(MainView.CARD_PACKAGE, "QUẢN LÝ GÓI TẬP", () -> {
-            buttons(MainView.CARD_PACKAGE, view.getPackageView().getBtnAdd(), view.getPackageView().getBtnEdit(), view.getPackageView().getBtnDelete());
+            view.getPackageView().setManageable(session.canManage(MainView.CARD_PACKAGE));
             return new PackageController(view.getPackageView())::reload;
         });
         screen(MainView.CARD_SUBSCRIPTION, "QUẢN LÝ ĐĂNG KÝ GÓI TẬP", () -> {
-            buttons(MainView.CARD_SUBSCRIPTION, view.getSubscriptionView().getBtnAdd(), view.getSubscriptionView().getBtnEdit(), view.getSubscriptionView().getBtnDelete());
-            return new SubscriptionController(view.getSubscriptionView())::reload;
+            view.getSubscriptionView().setManageable(session.canManage(MainView.CARD_SUBSCRIPTION));
+            return new SubscriptionController(view.getSubscriptionView(), session)::reload;
         });
         screen(MainView.CARD_PAYMENT, "QUẢN LÝ HÓA ĐƠN & THANH TOÁN", () -> {
-            buttons(MainView.CARD_PAYMENT, view.getPaymentView().getBtnAdd(), null, view.getPaymentView().getBtnDelete());
+            view.getPaymentView().setManageable(session.canManage(MainView.CARD_PAYMENT));
             return new PaymentController(view.getPaymentView(), session)::reload;
         });
         screen(MainView.CARD_CHECKIN, "QUẢN LÝ LỊCH SỬ CHECK-IN / CHECK-OUT", () -> {
-            buttons(MainView.CARD_CHECKIN, view.getCheckinView().getBtnCheckin(), view.getCheckinView().getBtnCheckout(), view.getCheckinView().getBtnDelete());
+            view.getCheckinView().setManageable(session.canManage(MainView.CARD_CHECKIN));
             return new CheckinController(view.getCheckinView(), session)::reload;
         });
-        screen(MainView.CARD_TRAINER, "QUẢN LÝ HUẤN LUYỆN VIÊN (PT)", () -> {
-            buttons(MainView.CARD_TRAINER, view.getTrainerView().getBtnAdd(), view.getTrainerView().getBtnEdit(), view.getTrainerView().getBtnDelete());
-            return new TrainerController(view.getTrainerView())::reload;
-        });
-        screen(MainView.CARD_PTSESSION, "QUẢN LÝ LỊCH TẬP PT", () -> {
-            buttons(MainView.CARD_PTSESSION, view.getPtSessionView().getBtnAdd(), view.getPtSessionView().getBtnEdit(), view.getPtSessionView().getBtnDelete());
-            return new PTSessionController(view.getPtSessionView(), session)::reload;
-        });
+        initTrainerScreen();
         screen(MainView.CARD_STAFF, "QUẢN LÝ NHÂN VIÊN", () -> {
-            buttons(MainView.CARD_STAFF, view.getStaffView().getBtnAdd(), view.getStaffView().getBtnEdit(), view.getStaffView().getBtnDelete());
+            // Sửa/xóa nằm ở cột Thao tác của từng dòng; không có quyền quản lý thì ẩn cột đó và nút thêm
+            view.getStaffView().setManageable(session.canManage(MainView.CARD_STAFF));
             return new StaffController(view.getStaffView(), session)::reload;
         });
         initEquipmentScreen();
+    }
+
+    /**
+     * Màn hình Huấn luyện viên PT gộp cả Lịch tập PT; mở được nếu có quyền xem một trong hai.
+     * Nút của danh sách HLV theo quyền TRAINER, nút của bảng lịch tập theo quyền PTSESSION.
+     */
+    private void initTrainerScreen() {
+        boolean canTrainer = session.canView(MainView.CARD_TRAINER);
+        boolean canSession = session.canView(MainView.CARD_PTSESSION);
+        if (!canTrainer && !canSession) {
+            view.hideMenuItem(MainView.CARD_TRAINER);
+            return;
+        }
+
+        TrainerView trainerView = view.getTrainerView();
+        PTSessionView sessionView = trainerView.getDetailView().getSessionView();
+        // Sửa/xóa nằm ở cột Thao tác của từng dòng; biểu tượng và nút thêm hiện theo quyền
+        if (canTrainer) {
+            trainerView.setManageable(session.canManage(MainView.CARD_TRAINER));
+        }
+        if (canSession) {
+            sessionView.setAccess(session.canManage(MainView.CARD_PTSESSION), session.isOwnOnly(MainView.CARD_PTSESSION));
+        }
+        String title = canTrainer ? "HUẤN LUYỆN VIÊN & LỊCH TẬP PT" : "LỊCH TẬP PT CỦA TÔI";
+        register(MainView.CARD_TRAINER, title, new TrainerScreenController(trainerView, session)::reload);
     }
 
     /** Màn hình Thiết bị gồm tab Danh sách thiết bị và tab Bảo trì; tab nào không có quyền thì bị gỡ. */
@@ -97,13 +119,20 @@ public class MainController {
 
         List<Runnable> reloads = new ArrayList<>();
         if (canEquipment) {
-            buttons(MainView.CARD_EQUIPMENT, view.getEquipmentView().getBtnAdd(), view.getEquipmentView().getBtnEdit(), view.getEquipmentView().getBtnDelete());
+            // Sửa/xóa nằm ở cột Thao tác của từng dòng; không có quyền quản lý thì ẩn cột đó và nút thêm
+            boolean canManageEquipment = session.canManage(MainView.CARD_EQUIPMENT);
+            view.getEquipmentView().getBtnAdd().setVisible(canManageEquipment);
+            view.getEquipmentView().setManageable(canManageEquipment);
             reloads.add(new EquipmentController(view.getEquipmentView())::reload);
         } else {
             view.getEquipmentTabs().remove(view.getEquipmentView());
         }
         if (canMaintenance) {
-            buttons(MainView.CARD_MAINTENANCE, view.getMaintenanceView().getBtnAdd(), view.getMaintenanceView().getBtnEdit(), view.getMaintenanceView().getBtnDelete());
+            // Quản lý: thêm, đổi trạng thái, sửa, xóa. Kỹ thuật viên (OWN): chỉ đổi trạng thái và sửa phiếu của mình.
+            boolean canManageMaintenance = session.canManage(MainView.CARD_MAINTENANCE);
+            boolean canUpdateMaintenance = canManageMaintenance || session.isOwnOnly(MainView.CARD_MAINTENANCE);
+            view.getMaintenanceView().getBtnAdd().setVisible(canManageMaintenance);
+            view.getMaintenanceView().setAccess(canUpdateMaintenance, canManageMaintenance);
             reloads.add(new MaintenanceController(view.getMaintenanceView(), session)::reload);
         } else {
             view.getEquipmentTabs().remove(view.getMaintenanceView());
@@ -130,17 +159,6 @@ public class MainController {
             firstScreen = card;
             firstScreenOpener = open;
         }
-    }
-
-    /**
-     * Ẩn nút theo quyền. VIEW: ẩn hết. OWN: chỉ giữ nút sửa, để cập nhật việc của mình.
-     * editButton = null với màn hình không có nút sửa.
-     */
-    private void buttons(String card, JButton addButton, JButton editButton, JButton deleteButton) {
-        if (session.canManage(card)) return;
-        addButton.setVisible(false);
-        deleteButton.setVisible(false);
-        if (editButton != null && !session.isOwnOnly(card)) editButton.setVisible(false);
     }
 
     private void initActions() {

@@ -11,7 +11,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Kết nối SQL Server và các thao tác JDBC dùng chung.
@@ -119,15 +122,91 @@ public final class Jdbc {
         }
     }
 
+    /**
+     * Khóa ngoại: missing khi thêm/sửa với mã không tồn tại,
+     * inUse khi xóa/sửa bản ghi mà dữ liệu khác đang trỏ tới.
+     */
+    private record ForeignKeyMessage(String missing, String inUse) {}
+
+    private static final Map<String, ForeignKeyMessage> FOREIGN_KEY_MESSAGES = Map.ofEntries(
+            Map.entry("FK_Staff_Manager", new ForeignKeyMessage("Mã quản lý không tồn tại.",
+                    "Nhân viên này đang là quản lý của nhân viên khác. Hãy đổi quản lý cho họ trước.")),
+            Map.entry("FK_Staff_Shift", new ForeignKeyMessage("Ca làm việc không tồn tại.", "Ca làm việc đang có nhân viên.")),
+            Map.entry("FK_Staff_Position", new ForeignKeyMessage("Chức vụ không tồn tại.", "Chức vụ đang có nhân viên.")),
+            Map.entry("FK_PositionPermission_Position", new ForeignKeyMessage("Chức vụ không tồn tại.", "Chức vụ đang có phân quyền.")),
+            Map.entry("FK_Subscription_Member", new ForeignKeyMessage("Hội viên không tồn tại.", "Hội viên này đã có đăng ký gói tập.")),
+            Map.entry("FK_Subscription_Package", new ForeignKeyMessage("Gói tập không tồn tại.", "Gói tập này đã có hội viên đăng ký.")),
+            Map.entry("FK_Payment_Subscription", new ForeignKeyMessage("Đăng ký gói tập không tồn tại.", "Đăng ký gói tập này đã có thanh toán.")),
+            Map.entry("FK_Payment_Staff", new ForeignKeyMessage("Nhân viên thu tiền không tồn tại.", "Nhân viên này đã lập hóa đơn thanh toán.")),
+            Map.entry("FK_Checkin_Member", new ForeignKeyMessage("Hội viên không tồn tại.", "Hội viên này đã có lịch sử check-in.")),
+            Map.entry("FK_Checkin_Staff", new ForeignKeyMessage("Nhân viên lễ tân không tồn tại.", "Nhân viên này đã ghi nhận check-in.")),
+            Map.entry("FK_PTSession_Trainer", new ForeignKeyMessage("Huấn luyện viên không tồn tại.", "Huấn luyện viên này đã có lịch tập PT.")),
+            Map.entry("FK_PTSession_Member", new ForeignKeyMessage("Hội viên không tồn tại.", "Hội viên này đã có lịch tập PT.")),
+            Map.entry("FK_TrainerSpecialty_Trainer", new ForeignKeyMessage("Huấn luyện viên không tồn tại.", "Huấn luyện viên này đang có chuyên môn.")),
+            Map.entry("FK_TrainerSpecialty_Specialty", new ForeignKeyMessage("Chuyên môn không tồn tại.", "Chuyên môn này đang được huấn luyện viên sử dụng.")),
+            Map.entry("FK_Maintenance_Staff", new ForeignKeyMessage("Nhân viên kỹ thuật không tồn tại.", "Nhân viên này đang có phiếu bảo trì.")),
+            Map.entry("FK_Maintenance_Equipment", new ForeignKeyMessage("Thiết bị không tồn tại.", "Thiết bị này đang có phiếu bảo trì.")),
+            Map.entry("FK_UserAccount_Staff", new ForeignKeyMessage("Nhân viên không tồn tại.", "Nhân viên này đang có tài khoản.")),
+            Map.entry("FK_UserAccount_Trainer", new ForeignKeyMessage("Huấn luyện viên không tồn tại.", "Huấn luyện viên này đang có tài khoản.")));
+
+    /** Ràng buộc UNIQUE và CHECK; tên lấy đúng theo database/01_schema.sql. */
+    private static final Map<String, String> CONSTRAINT_MESSAGES = Map.ofEntries(
+            Map.entry("UQ_Staff_Phone", "Số điện thoại này đã được nhân viên khác sử dụng."),
+            Map.entry("UQ_Member_Phone", "Số điện thoại này đã được hội viên khác sử dụng."),
+            Map.entry("UQ_Member_Email", "Email này đã được hội viên khác sử dụng."),
+            Map.entry("UQ_Trainer_Phone", "Số điện thoại này đã được huấn luyện viên khác sử dụng."),
+            Map.entry("UQ_GymPackage_Name", "Tên gói tập đã tồn tại."),
+            Map.entry("UQ_Shift_Name", "Tên ca làm việc đã tồn tại."),
+            Map.entry("UQ_Position_Name", "Tên chức vụ đã tồn tại."),
+            Map.entry("UQ_Specialty_Name", "Tên chuyên môn đã tồn tại."),
+            Map.entry("UQ_Subscription_Natural", "Hội viên đã đăng ký gói này với cùng ngày bắt đầu."),
+            Map.entry("UQ_Checkin_Natural", "Hội viên đã check-in vào đúng thời điểm này."),
+            Map.entry("UQ_PTSession_Trainer_Start", "Huấn luyện viên đã có buổi tập khác bắt đầu cùng giờ."),
+            Map.entry("UQ_PTSession_Member_Start", "Hội viên đã có buổi tập khác bắt đầu cùng giờ."),
+            Map.entry("UQ_UserAccount_Staff", "Nhân viên này đã có tài khoản."),
+            Map.entry("UQ_UserAccount_Trainer", "Huấn luyện viên này đã có tài khoản."),
+            Map.entry("CK_Staff_NotOwnManager", "Nhân viên không thể tự quản lý mình."),
+            Map.entry("CK_Staff_NotTrainerPosition", "Huấn luyện viên được quản lý ở màn hình Huấn luyện viên PT, không chọn chức vụ này cho nhân viên."),
+            Map.entry("CK_Staff_Salary", "Mức lương không được âm."),
+            Map.entry("CK_GymPackage_Price", "Giá gói tập không được âm."),
+            Map.entry("CK_GymPackage_Duration", "Thời hạn gói tập phải lớn hơn 0 ngày."),
+            Map.entry("CK_Subscription_Dates", "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu."),
+            Map.entry("CK_Payment_Amount", "Số tiền thanh toán phải lớn hơn 0."),
+            Map.entry("CK_Checkin_Times", "Giờ ra phải sau giờ vào."),
+            Map.entry("CK_PTSession_Times", "Giờ kết thúc phải sau giờ bắt đầu."),
+            Map.entry("CK_Trainer_Experience", "Số năm kinh nghiệm không được âm."),
+            Map.entry("CK_Equipment_Value", "Giá trị thiết bị không được âm."),
+            Map.entry("CK_Equipment_Status", "Trạng thái thiết bị chỉ được là Hoạt động tốt, Cần thay thế linh kiện hoặc Tới hạn bảo trì định kỳ. "
+                    + "Nếu database được tạo từ bản cũ, hãy chạy lại script setup_database."));
+
+    /** SQL Server ghi tên ràng buộc trong dấu nháy, ví dụ: constraint "FK_Staff_Manager" hoặc 'UQ_Staff_Phone'. */
+    private static final Pattern CONSTRAINT_NAME = Pattern.compile("[\"']((?:PK|FK|UQ|CK)_\\w+)[\"']");
+
     private static DataAccessException translate(SQLException e) {
+        String detail = e.getMessage() == null ? "" : e.getMessage();
+        Matcher m = CONSTRAINT_NAME.matcher(detail);
+        String constraint = m.find() ? m.group(1) : "";
+
         String message = switch (e.getErrorCode()) {
-            case 2627, 2601 -> "Dữ liệu bị trùng: mã hoặc thông tin duy nhất (số điện thoại, email, tên...) đã tồn tại.";
-            case 547 -> e.getMessage() != null && e.getMessage().contains("CHECK")
-                    ? "Dữ liệu không hợp lệ (giá trị âm, hoặc thời gian kết thúc trước thời gian bắt đầu)."
-                    : "Không thể thực hiện: bản ghi đang được dữ liệu khác sử dụng, hoặc mã liên kết không tồn tại.";
+            case 2627, 2601 -> {
+                if (constraint.startsWith("PK_")) yield "Mã này đã tồn tại, hãy dùng mã khác.";
+                yield CONSTRAINT_MESSAGES.getOrDefault(constraint,
+                        "Dữ liệu bị trùng: mã hoặc thông tin duy nhất (số điện thoại, email, tên...) đã tồn tại.");
+            }
+            case 547 -> {
+                ForeignKeyMessage fk = FOREIGN_KEY_MESSAGES.get(constraint);
+                // "REFERENCE constraint": xóa/sửa bản ghi đang được trỏ tới; "FOREIGN KEY constraint": mã liên kết không tồn tại
+                boolean referenced = detail.contains("REFERENCE constraint");
+                if (fk != null) yield "Không thể thực hiện: " + (referenced ? fk.inUse() : fk.missing());
+                if (CONSTRAINT_MESSAGES.containsKey(constraint)) yield "Dữ liệu không hợp lệ: " + CONSTRAINT_MESSAGES.get(constraint);
+                if (detail.contains("CHECK")) yield "Dữ liệu không hợp lệ (giá trị âm, hoặc thời gian kết thúc trước thời gian bắt đầu).";
+                yield referenced
+                        ? "Không thể thực hiện: bản ghi đang được dữ liệu khác sử dụng."
+                        : "Không thể thực hiện: mã liên kết không tồn tại.";
+            }
             case 18456 -> "Sai tài khoản kết nối database. Kiểm tra file db.properties.";
-            case 4060 -> "Không mở được database GymManagementDB. Hãy chạy database\\setup_database.ps1.";
-            default -> "Lỗi cơ sở dữ liệu: " + e.getMessage();
+            case 4060 -> "Không mở được database GymManagementDB. Hãy chạy database\\setup_database.ps1 (Windows) hoặc database/setup_database.sh (macOS).";
+            default -> "Lỗi cơ sở dữ liệu: " + detail;
         };
         return new DataAccessException(message, e);
     }

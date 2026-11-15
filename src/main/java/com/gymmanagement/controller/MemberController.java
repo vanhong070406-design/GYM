@@ -2,9 +2,12 @@ package com.gymmanagement.controller;
 
 import com.gymmanagement.dao.MemberDao;
 import com.gymmanagement.model.Member;
+import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.MemberView;
 import com.gymmanagement.view.UITheme;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -37,45 +40,38 @@ public class MemberController {
         // Nút Thêm
         view.getBtnAdd().addActionListener(e -> showMemberDialog(null));
 
-        // Nút Chỉnh sửa
-        view.getBtnEdit().addActionListener(e -> {
-            int selectedRow = view.getTable().getSelectedRow();
-            if (selectedRow == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một hội viên từ danh sách để sửa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String memberId = (String) view.getTableModel().getValueAt(selectedRow, 0);
-            Member member = findMemberById(memberId);
-            if (member != null) {
-                showMemberDialog(member);
-            }
-        });
-
-        // Nút Xóa
-        view.getBtnDelete().addActionListener(e -> {
-            int selectedRow = view.getTable().getSelectedRow();
-            if (selectedRow == -1) {
-                JOptionPane.showMessageDialog(view, "Vui lòng chọn một hội viên cần xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            String memberId = (String) view.getTableModel().getValueAt(selectedRow, 0);
-            String fullName = (String) view.getTableModel().getValueAt(selectedRow, 1);
-
-            int confirm = JOptionPane.showConfirmDialog(
-                    view,
-                    "Bạn có chắc chắn muốn xóa hội viên: " + fullName + " (" + memberId + ") không?",
-                    "Xác nhận xóa",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.QUESTION_MESSAGE
-            );
-
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (!DbAction.run(view, () -> dao.delete(memberId))) return;
-                loadData(fetchAll());
-                JOptionPane.showMessageDialog(view, "Xóa hội viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        // Cột Thao tác: bút chì để sửa, thùng rác để xóa
+        view.getTable().addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                ActionColumn.Action action = view.getActionColumn().actionAt(e.getPoint());
+                if (action == null || e.getClickCount() != 1) return;
+                int row = view.getTable().rowAtPoint(e.getPoint());
+                String memberId = (String) view.getTableModel().getValueAt(row, 0);
+                if (action == ActionColumn.Action.EDIT) {
+                    Member member = findMemberById(memberId);
+                    if (member != null) showMemberDialog(member);
+                } else if (action == ActionColumn.Action.DELETE) {
+                    confirmDelete(memberId, (String) view.getTableModel().getValueAt(row, 1));
+                }
             }
         });
+    }
+
+    private void confirmDelete(String memberId, String fullName) {
+        int confirm = JOptionPane.showConfirmDialog(
+                view,
+                "Bạn có chắc chắn muốn xóa hội viên: " + fullName + " (" + memberId + ") không?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (!DbAction.run(view, () -> dao.delete(memberId))) return;
+            loadData(fetchAll());
+            JOptionPane.showMessageDialog(view, "Xóa hội viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private List<Member> fetchAll() {
@@ -99,9 +95,11 @@ public class MemberController {
                     Formats.text(m.getJoinDate()),
                     Formats.nullToEmpty(m.getAddress()),
                     Formats.text(m.getBirthDate()),
-                    m.getGender()
+                    m.getGender(),
+                    "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setCount(list.size());
     }
 
     private void handleSearch() {

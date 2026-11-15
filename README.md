@@ -53,8 +53,9 @@ GymManagement/
 │                   │   ├── SubscriptionView.java          # Đăng ký gói tập
 │                   │   ├── PaymentView.java               # Quản lý thanh toán
 │                   │   ├── CheckinView.java               # Quản lý check-in
-│                   │   ├── TrainerView.java               # Quản lý HLV
-│                   │   ├── PTSessionView.java             # Quản lý lịch tập PT
+│                   │   ├── TrainerView.java               # Huấn luyện viên PT: danh sách HLV + trang chi tiết
+│                   │   ├── TrainerDetailView.java         # Trang chi tiết HLV: thông tin, thống kê, lịch tập
+│                   │   ├── PTSessionView.java             # Bảng lịch tập PT (nằm trong trang chi tiết)
 │                   │   ├── StaffView.java                 # Quản lý nhân viên
 │                   │   ├── AreaView.java                  # Quản lý khu vực
 │                   │   ├── EquipmentView.java             # Quản lý thiết bị
@@ -69,6 +70,7 @@ GymManagement/
 │                       ├── SubscriptionController.java
 │                       ├── PaymentController.java
 │                       ├── CheckinController.java
+│                       ├── TrainerScreenController.java   # Điều phối danh sách HLV ↔ trang chi tiết
 │                       ├── TrainerController.java
 │                       ├── PTSessionController.java
 │                       ├── StaffController.java
@@ -119,31 +121,31 @@ GymManagement/
 - Các trường: `CheckinID`, `CheckinTime`, `CheckoutTime`, `MemberID`, `ReceptionistID`.
 - Nút Check-in nhanh tự động lấy thời gian hiện tại, nút Check-out một chạm.
 
-### 3.8. Quản lý huấn luyện viên (`TrainerView` / `TrainerController`)
-- Các trường: `TrainerID`, `FullName`, `Phone`, `ExperienceYears`; chuyên môn lưu ở `Specialty` và `TrainerSpecialty`.
-- Quản lý danh sách HLV thể hình, yoga, kickboxing; thêm, sửa, xóa.
+### 3.8. Huấn luyện viên & lịch tập PT (`TrainerView` / `TrainerScreenController`)
+Một mục menu gồm 2 trang: danh sách HLV và trang chi tiết của từng HLV.
+- **Danh sách HLV** (`TrainerController`): các trường `TrainerID`, `FullName`, `Phone`, `ExperienceYears`; chuyên môn lưu ở `Specialty` và `TrainerSpecialty`. Thêm, sửa, xóa HLV. Bấm **Xem chi tiết ›** (hoặc nháy đúp một dòng) để mở trang chi tiết; nút **Lịch tập tất cả HLV** mở lịch của mọi HLV.
+- **Trang chi tiết** (`TrainerDetailView`): thông tin HLV, thống kê số buổi (tổng, hoàn thành, sắp tới, đã hủy) và bảng lịch tập PT của HLV đó (`PTSessionView` / `PTSessionController`, các trường `SessionID`, `StartTime`, `EndTime`, `Status`, `TrainerID`, `MemberID`). Đặt lịch từ trang này tự chọn sẵn HLV.
+- Phân quyền: nút của danh sách HLV theo quyền `TRAINER`, nút của lịch tập theo quyền `PTSESSION`. Tài khoản HLV vào thẳng trang của mình.
 
-### 3.9. Quản lý lịch tập PT (`PTSessionView` / `PTSessionController`)
-- Các trường: `SessionID`, `StartTime`, `EndTime`, `Status`, `TrainerID`, `AreaID`, `MemberID`.
-- Lọc lịch tập theo trạng thái, chọn HLV và khu vực phù hợp.
-
-### 3.10. Quản lý nhân viên (`StaffView` / `StaffController`)
+### 3.9. Quản lý nhân viên (`StaffView` / `StaffController`)
 - Các trường: `StaffID`, `FullName`, `Phone`, `Salary`, `ShiftID`, `HireDate`, `ManagerID`, `PositionID`; ca làm việc lưu ở `Shift`.
 - Phân chia ca làm việc (ca sáng, ca chiều, ca hành chính), quản lý tiền lương.
 
-### 3.11. Quản lý khu vực phòng tập (`AreaView` / `AreaController`)
+### 3.10. Quản lý khu vực phòng tập (`AreaView` / `AreaController`)
 - Các trường: `AreaID`, `AreaName`, `Floor`, `Description`.
 - Quản lý các tầng và khu vực chức năng (Cardio, Tạ tự do, Máy khối, Yoga Studio...).
 
-### 3.12. Quản lý thiết bị (`EquipmentView` / `EquipmentController`)
-- Các trường: `EquipmentID`, `EquipmentName`, `PurchaseValue`, `PurchaseDate`, `Status`, `AreaID`.
-- Theo dõi trạng thái máy móc (Tốt, Đang bảo trì, Cần thay thế linh kiện), khu vực đặt máy.
+### 3.11. Quản lý thiết bị (`EquipmentView` / `EquipmentController`)
+- Các trường: `EquipmentID`, `EquipmentName`, `PurchaseValue`, `PurchaseDate`, `Status`.
+- Trạng thái: **Hoạt động tốt**, **Cần thay thế linh kiện**, **Tới hạn bảo trì định kỳ**. Đổi ngay trong bảng bằng combobox ở cột Trạng thái, chọn xong là lưu.
+- Cột **Thao tác** của từng dòng: biểu tượng bút chì để sửa, thùng rác để xóa. Biểu tượng ⟳ ở đầu bảng để làm mới. Tài khoản chỉ có quyền xem không thấy cột Thao tác và không đổi được trạng thái.
 
-### 3.13. Quản lý bảo trì thiết bị (`MaintenanceView` / `MaintenanceController`)
+### 3.12. Quản lý bảo trì thiết bị (`MaintenanceView` / `MaintenanceController`)
 - Các trường: `StaffID`, `EquipmentID`, `MaintenanceDate`, `Note`, `Status`.
-- Phân công kỹ thuật viên phụ trách sửa chữa, bảo dưỡng thiết bị.
+- Phân công kỹ thuật viên phụ trách sửa chữa, bảo dưỡng thiết bị. Chỉ chọn được thiết bị đang **Cần thay thế linh kiện** hoặc **Tới hạn bảo trì định kỳ** và chưa có phiếu đang mở (Đang bảo trì / Chờ linh kiện).
+- Phiếu đang mở không đổi trạng thái thiết bị. Khi phiếu chuyển sang **Đã hoàn thành** và thiết bị không còn phiếu nào đang mở, thiết bị tự về **Hoạt động tốt**.
 
-### 3.14. Quản lý phân công vệ sinh (`AreaCleaningView` / `AreaCleaningController`)
+### 3.13. Quản lý phân công vệ sinh (`AreaCleaningView` / `AreaCleaningController`)
 - Các trường: `AreaID`, `CleaningDate`, `ShiftID` (khóa chính), `StaffID`, `Status`.
 - Phân công nhân viên tạp vụ phụ trách từng khu vực theo ca trực.
 
@@ -166,8 +168,18 @@ Script tạo `GymManagementDB`, nạp dữ liệu mẫu, tạo login `gym_app` (
 
 Tham số `-Reset` **xóa toàn bộ dữ liệu hiện có** rồi tạo lại từ đầu.
 
+#### macOS (chạy SQL Server bằng Docker)
+SQL Server không cài trực tiếp được trên macOS nên chạy trong Docker. Cần cài Docker Desktop và bật nó lên; trên chip Apple, trong Settings → General bật *Use Rosetta for x86/amd64 emulation*.
+
+```bash
+./database/setup_database.sh
+```
+
+Script tạo container `gym-sql` (SQL Server 2022, chỉ mở cổng 1433 trên `127.0.0.1`, dữ liệu lưu trong volume `gym-sql-data`), rồi làm giống hệt bản PowerShell. Mật khẩu `sa` của container được lưu ở `.mssql_sa_password` (không commit). Thêm `--reset` để xóa dữ liệu và tạo lại. Sau khi khởi động lại máy: mở Docker Desktop rồi chạy `docker start gym-sql`.
+
 ### Bước 2: Chạy chương trình
 - **Windows:** chạy `compile.bat`, sau đó `run.bat`.
+- **macOS/Linux:** chạy `./run.sh`.
 - **IntelliJ IDEA:** chạy `com.gymmanagement.Main` với thư mục làm việc là thư mục gốc dự án (để tìm thấy `db.properties`).
 - **Dòng lệnh:**
 
@@ -189,4 +201,4 @@ Tất cả dùng mật khẩu `123456`, chỉ để thử nghiệm; hãy đổi 
 
 Nhân viên hoặc HLV mới: Quản lý vào **Quản lý Tài khoản → Tạo tài khoản**. Ma trận quyền đầy đủ ở `docs/DATABASE_DESIGN.md`.
 
-Nâng cấp database bản cũ: chạy lại `setup_database.ps1` (không có `-Reset`), dữ liệu được giữ nguyên.
+Nâng cấp database bản cũ: chạy lại `setup_database.ps1` (macOS: `setup_database.sh`), không có `-Reset`; dữ liệu được giữ nguyên. Script chạy `04_upgrade_roles.sql` và `05_equipment_status.sql` (đổi trạng thái thiết bị: Tốt → Hoạt động tốt, Đang bảo trì → Tới hạn bảo trì định kỳ).

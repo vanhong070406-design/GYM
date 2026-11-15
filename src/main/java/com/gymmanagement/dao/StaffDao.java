@@ -29,6 +29,11 @@ public class StaffDao {
         return Jdbc.query(SELECT + "WHERE st.PositionID = ? ORDER BY st.StaffID", StaffDao::map, positionId);
     }
 
+    /** Mã các nhân viên do managerId quản lý trực tiếp. */
+    public List<String> findDirectReportIds(String managerId) {
+        return Jdbc.query("SELECT StaffID FROM Staff WHERE ManagerID = ? ORDER BY StaffID", rs -> rs.getString(1), managerId);
+    }
+
     public void insert(Staff x) {
         Jdbc.update("INSERT INTO Staff (StaffID, FullName, Phone, Salary, ShiftID, HireDate, ManagerID, PositionID) VALUES (?,?,?,?,?,?,?,?)",
                 x.getStaffId(), x.getFullName(), x.getPhone(), x.getSalary(), x.getShiftId(), x.getHireDate(), x.getManagerId(), x.getPositionId());

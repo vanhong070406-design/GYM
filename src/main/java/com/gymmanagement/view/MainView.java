@@ -22,6 +22,7 @@ public class MainView extends JFrame {
     public static final String CARD_PAYMENT = "PAYMENT";
     public static final String CARD_CHECKIN = "CHECKIN";
     public static final String CARD_TRAINER = "TRAINER";
+    /** Mã quyền của lịch tập PT (không còn card riêng, nằm trong trang chi tiết của màn hình Huấn luyện viên PT). */
     public static final String CARD_PTSESSION = "PTSESSION";
     public static final String CARD_STAFF = "STAFF";
     public static final String CARD_EQUIPMENT = "EQUIPMENT";
@@ -44,7 +45,6 @@ public class MainView extends JFrame {
     private PaymentView paymentView;
     private CheckinView checkinView;
     private TrainerView trainerView;
-    private PTSessionView ptSessionView;
     private StaffView staffView;
     private EquipmentView equipmentView;
     private MaintenanceView maintenanceView;
@@ -88,8 +88,7 @@ public class MainView extends JFrame {
         subscriptionView = new SubscriptionView();
         paymentView = new PaymentView();
         checkinView = new CheckinView();
-        trainerView = new TrainerView();
-        ptSessionView = new PTSessionView();
+        trainerView = new TrainerView(); // gồm cả lịch tập PT trong trang chi tiết
         staffView = new StaffView();
         equipmentView = new EquipmentView();
         maintenanceView = new MaintenanceView();
@@ -108,7 +107,6 @@ public class MainView extends JFrame {
         contentContainer.add(paymentView, CARD_PAYMENT);
         contentContainer.add(checkinView, CARD_CHECKIN);
         contentContainer.add(trainerView, CARD_TRAINER);
-        contentContainer.add(ptSessionView, CARD_PTSESSION);
         contentContainer.add(staffView, CARD_STAFF);
         contentContainer.add(equipmentTabs, CARD_EQUIPMENT);
 
@@ -156,7 +154,6 @@ public class MainView extends JFrame {
         addMenuItem(menuPanel, "Quản lý Thanh toán", CARD_PAYMENT);
         addMenuItem(menuPanel, "Quản lý Check-in", CARD_CHECKIN);
         addMenuItem(menuPanel, "Huấn luyện viên PT", CARD_TRAINER);
-        addMenuItem(menuPanel, "Lịch tập PT", CARD_PTSESSION);
         addMenuItem(menuPanel, "Quản lý Nhân viên", CARD_STAFF);
         addMenuItem(menuPanel, "Quản lý Thiết bị", CARD_EQUIPMENT);
 
@@ -271,7 +268,6 @@ public class MainView extends JFrame {
     public PaymentView getPaymentView() { return paymentView; }
     public CheckinView getCheckinView() { return checkinView; }
     public TrainerView getTrainerView() { return trainerView; }
-    public PTSessionView getPtSessionView() { return ptSessionView; }
     public StaffView getStaffView() { return staffView; }
     public EquipmentView getEquipmentView() { return equipmentView; }
     public MaintenanceView getMaintenanceView() { return maintenanceView; }
