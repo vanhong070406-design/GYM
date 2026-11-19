@@ -8,19 +8,21 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
-/**
- * Giao diện Quản lý nhân viên (Staff Management)
- * Các trường: StaffID, FullName, Phone, Salary, Shift, HireDate, ManagerID, Position.
- * Sửa/xóa bằng biểu tượng ở cột Thao tác; nút làm mới nằm trên đầu bảng cạnh số nhân viên.
- */
+// Giao diện Quản lý nhân viên (Staff Management)
+// Các trường: StaffID, FullName, Phone, Salary, Shift, HireDate, Position, Username, trạng thái mật khẩu.
+// Cấp tài khoản / sửa / xóa bằng biểu tượng ở cột Thao tác; nút làm mới nằm trên đầu bảng cạnh số nhân viên.
+// Mật khẩu được băm một chiều nên cột Mật khẩu chỉ hiện trạng thái, không hiện được mật khẩu thật.
+
 public class StaffView extends JPanel {
-    public static final int ACTION_COLUMN = 7;
+    public static final int ACTION_COLUMN = 9;
+    // Chữ ở cột Tên đăng nhập / Mật khẩu khi nhân viên chưa có tài khoản
+    public static final String NO_ACCOUNT = "Chưa cấp";
 
     private JTable table;
     private DefaultTableModel tableModel;
     private ActionColumn actionColumn;
     private TableHeader tableHeader;
-    /** Nhân viên đang đăng nhập: không được tự xóa nên biểu tượng xóa ở dòng này bị làm mờ. */
+    // Nhân viên đang đăng nhập: không được tự xóa nên biểu tượng xóa ở dòng này bị làm mờ
     private String currentStaffId;
 
     private JTextField txtSearch;
@@ -46,7 +48,7 @@ public class StaffView extends JPanel {
         lblSearch.setForeground(UITheme.TEXT_DARK);
 
         txtSearch = UITheme.createTextField(22);
-        txtSearch.setToolTipText("Mã nhân viên, Tên nhân viên hoặc SĐT...");
+        txtSearch.setToolTipText("Mã nhân viên, Tên nhân viên, SĐT hoặc Tên đăng nhập...");
 
         btnSearch = UITheme.createPrimaryButton("Tìm kiếm");
 
@@ -69,7 +71,7 @@ public class StaffView extends JPanel {
 
         String[] columns = {
                 "Mã NV", "Họ và Tên", "Số Điện Thoại", "Lương CB",
-                "Ca Làm Việc", "Ngày Tuyển", "Chức Vụ", "Thao tác"
+                "Ca Làm Việc", "Ngày Tuyển", "Chức Vụ", "Tên Đăng Nhập", "Mật Khẩu", "Thao tác"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -90,16 +92,18 @@ public class StaffView extends JPanel {
         };
         UITheme.styleTable(table);
         table.getTableHeader().setReorderingAllowed(false); // cột Thao tác phải luôn nằm cuối
-        // Cột mã ngắn nhường chỗ cho Họ tên và Ca làm việc
-        int[] widths = {72, 160, 112, 118, 160, 100, 120};
-        int[] minWidths = {68, 110, 104, 100, 110, 96, 80};
+        // Cột mã ngắn nhường chỗ cho Họ tên, Ca làm việc và Tên đăng nhập
+        int[] widths = {66, 150, 106, 100, 140, 94, 106, 118, 108};
+        int[] minWidths = {60, 100, 96, 88, 90, 90, 76, 84, 84};
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
             table.getColumnModel().getColumn(i).setMinWidth(minWidths[i]);
         }
         actionColumn = new ActionColumn(table, ACTION_COLUMN, Map.of(
+                Action.ACCOUNT, "Cấp tài khoản / đặt lại mật khẩu",
                 Action.EDIT, "Chỉnh sửa nhân viên",
                 Action.DELETE, "Xóa nhân viên"));
+        actionColumn.setActions(Action.ACCOUNT, Action.EDIT, Action.DELETE);
         actionColumn.setDisabledWhen((row, action) -> action == Action.DELETE && isCurrentUserRow(row),
                 Map.of(Action.DELETE, "Không thể xóa tài khoản đang đăng nhập"));
 
@@ -111,7 +115,7 @@ public class StaffView extends JPanel {
         add(tablePanel, BorderLayout.CENTER);
     }
 
-    /** row: chỉ số dòng trong tableModel. */
+    // row: chỉ số dòng trong tableModel
     public boolean isCurrentUserRow(int row) {
         return currentStaffId != null && currentStaffId.equalsIgnoreCase(String.valueOf(tableModel.getValueAt(row, 0)));
     }
@@ -121,10 +125,10 @@ public class StaffView extends JPanel {
         table.repaint();
     }
 
-    /** Tài khoản không có quyền quản lý: ẩn nút thêm và cột Thao tác. */
+    // Tài khoản không có quyền quản lý: ẩn nút thêm và cột Thao tác
     public void setManageable(boolean manageable) {
         btnAdd.setVisible(manageable);
-        if (manageable) actionColumn.setActions(Action.EDIT, Action.DELETE);
+        if (manageable) actionColumn.setActions(Action.ACCOUNT, Action.EDIT, Action.DELETE);
         else actionColumn.setActions();
     }
 

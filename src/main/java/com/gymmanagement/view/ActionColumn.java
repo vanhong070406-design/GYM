@@ -12,13 +12,13 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 
-/**
- * Cột Thao tác dạng biểu tượng ở cuối bảng: xem / sửa / check-out / xóa.
- * Các biểu tượng chia đều bề ngang ô; tập biểu tượng đổi theo quyền bằng {@link #setActions},
- * không còn biểu tượng nào thì cột bị ẩn. Biểu tượng có thể bị làm mờ theo từng dòng bằng {@link #setDisabledWhen}.
- */
+
+// Cột Thao tác dạng biểu tượng ở cuối bảng: xem / sửa / check-out / xóa / cấp tài khoản.
+// Các biểu tượng chia đều bề ngang ô; tập biểu tượng đổi theo quyền bằng {@link #setActions},
+// không còn biểu tượng nào thì cột bị ẩn. Biểu tượng có thể bị làm mờ theo từng dòng bằng {@link #setDisabledWhen}.
+
 public final class ActionColumn {
-    public enum Action { VIEW, RENEW, PAY, EDIT, CHECKOUT, DELETE }
+    public enum Action { VIEW, RENEW, PAY, ACCOUNT, EDIT, CHECKOUT, DELETE }
 
     private static final Color DISABLED = UITheme.BORDER;
 
@@ -35,7 +35,7 @@ public final class ActionColumn {
     private BiPredicate<Integer, Action> disabledWhen = (row, action) -> false;
     private boolean shown = true;
 
-    /** tooltips: chữ hiện khi rê chuột lên từng biểu tượng, ví dụ VIEW → "Xem chi tiết HLV". */
+    // tooltips: chữ hiện khi rê chuột lên từng biểu tượng, ví dụ VIEW → "Xem chi tiết HLV". 
     public ActionColumn(JTable table, int modelIndex, Map<Action, String> tooltips) {
         this.table = table;
         this.modelIndex = modelIndex;
@@ -45,6 +45,7 @@ public final class ActionColumn {
         register(Action.VIEW, Icons.eye(UITheme.TEXT_MUTED), Icons.eye(DISABLED));
         register(Action.RENEW, Icons.calendarPlus(UITheme.PRIMARY_HOVER), Icons.calendarPlus(DISABLED));
         register(Action.PAY, Icons.cash(UITheme.SUCCESS), Icons.cash(DISABLED));
+        register(Action.ACCOUNT, Icons.key(UITheme.WARNING), Icons.key(DISABLED));
         register(Action.EDIT, Icons.edit(UITheme.PRIMARY_HOVER), Icons.edit(DISABLED));
         register(Action.CHECKOUT, Icons.logout(UITheme.SUCCESS), Icons.logout(DISABLED));
         register(Action.DELETE, Icons.trash(UITheme.DANGER), Icons.trash(DISABLED));
@@ -79,7 +80,7 @@ public final class ActionColumn {
         disabledIcons.put(action, disabled);
     }
 
-    /** Đặt các biểu tượng hiện trong cột, theo thứ tự trái sang phải; không truyền gì thì ẩn cột. */
+    // Đặt các biểu tượng hiện trong cột, theo thứ tự trái sang phải; không truyền gì thì ẩn cột. 
     public void setActions(Action... list) {
         actions = List.of(list);
         cell.removeAll();
@@ -103,10 +104,10 @@ public final class ActionColumn {
         table.repaint();
     }
 
-    /**
-     * Làm mờ biểu tượng ở những dòng thỏa điều kiện (row là chỉ số dòng trong tableModel); bấm vào không có tác dụng.
-     * reasons: tooltip giải thích vì sao biểu tượng bị mờ, theo từng loại.
-     */
+    
+    // Làm mờ biểu tượng ở những dòng thỏa điều kiện (row là chỉ số dòng trong tableModel); bấm vào không có tác dụng.
+    // reasons: tooltip giải thích vì sao biểu tượng bị mờ, theo từng loại.
+    
     public void setDisabledWhen(BiPredicate<Integer, Action> disabledWhen, Map<Action, String> reasons) {
         this.disabledWhen = disabledWhen;
         disabledTooltips.clear();
@@ -118,14 +119,14 @@ public final class ActionColumn {
         return disabledWhen.test(table.convertRowIndexToModel(viewRow), action);
     }
 
-    /** Điểm nằm trên ô của cột Thao tác (có dữ liệu) hay không. */
+    // Điểm nằm trên ô của cột Thao tác (có dữ liệu) hay không. 
     public boolean isAt(Point p) {
         int row = table.rowAtPoint(p);
         int col = table.columnAtPoint(p);
         return shown && row >= 0 && col >= 0 && table.convertColumnIndexToModel(col) == modelIndex;
     }
 
-    /** Biểu tượng nằm dưới điểm p, kể cả khi đang mờ; null nếu p không nằm trong cột Thao tác. */
+    // Biểu tượng nằm dưới điểm p, kể cả khi đang mờ; null nếu p không nằm trong cột Thao tác. 
     private Action iconAt(Point p) {
         if (!isAt(p)) return null;
         Rectangle r = table.getCellRect(table.rowAtPoint(p), table.columnAtPoint(p), false);
@@ -133,7 +134,7 @@ public final class ActionColumn {
         return actions.get(Math.min(Math.max(index, 0), actions.size() - 1));
     }
 
-    /** Hành động bấm được tại điểm p; null nếu không nằm trên biểu tượng nào hoặc biểu tượng đang mờ. */
+    // Hành động bấm được tại điểm p; null nếu không nằm trên biểu tượng nào hoặc biểu tượng đang mờ. 
     public Action actionAt(Point p) {
         Action a = iconAt(p);
         return a == null || isDisabled(table.rowAtPoint(p), a) ? null : a;

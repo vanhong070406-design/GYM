@@ -3,6 +3,7 @@ package com.gymmanagement.controller;
 import com.gymmanagement.dao.PositionDao;
 import com.gymmanagement.dao.ShiftDao;
 import com.gymmanagement.dao.StaffDao;
+import com.gymmanagement.dao.UserAccountDao;
 import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Shift;
 import com.gymmanagement.model.Staff;
@@ -10,32 +11,29 @@ import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.ActionColumn;
 import com.gymmanagement.view.StaffView;
 import com.gymmanagement.view.UITheme;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Map;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 
-/**
- * Controller điều phối Quản lý nhân viên
- */
+// Controller điều phối Quản lý nhân viên, gồm cả cấp tài khoản đăng nhập cho nhân viên
+
 public class StaffController {
+    private static final String MANAGER_POSITION = "QL";
+
     private final StaffView view;
     private final UserSession session;
     private final PositionDao positionDao = new PositionDao();
     private final StaffDao dao = new StaffDao();
     private final ShiftDao shiftDao = new ShiftDao();
+    private final UserAccountDao accountDao = new UserAccountDao();
 
     public StaffController(StaffView view, UserSession session) {
         this.view = view;
@@ -56,7 +54,7 @@ public class StaffController {
 
         view.getBtnAdd().addActionListener(e -> showStaffDialog(null));
 
-        // Cột Thao tác: nửa trái là biểu tượng sửa, nửa phải là biểu tượng xóa
+        // Cột Thao tác: chìa khóa cấp tài khoản, bút chì sửa, thùng rác xóa
         view.getTable().addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -64,7 +62,10 @@ public class StaffController {
                 if (action == null || e.getClickCount() != 1) return;
                 int row = view.getTable().rowAtPoint(e.getPoint());
                 String stId = (String) view.getTableModel().getValueAt(row, 0);
-                if (action == ActionColumn.Action.EDIT) {
+                if (action == ActionColumn.Action.ACCOUNT) {
+                    Staff staff = findStaffById(stId);
+                    if (staff != null) showAccountDialog(staff);
+                } else if (action == ActionColumn.Action.EDIT) {
                     Staff staff = findStaffById(stId);
                     if (staff != null) showStaffDialog(staff);
                 } else if (action == ActionColumn.Action.DELETE) {
@@ -72,6 +73,15 @@ public class StaffController {
                 }
             }
         });
+    }
+
+    // Cấp tài khoản mới, hoặc đặt lại mật khẩu nếu nhân viên đã có tài khoản
+    private void showAccountDialog(Staff staff) {
+        // Đọc lại từ database: máy khác có thể vừa cấp tài khoản cho nhân viên này
+        UserAccountDao.StaffAccount existing = fetchAccounts().get(staff.getStaffId());
+        if (AccountDialog.show(SwingUtilities.getWindowAncestor(view), staff, existing)) {
+            handleSearch();
+        }
     }
 
     private void confirmDelete(String stId, String stName) {
@@ -82,7 +92,7 @@ public class StaffController {
 
         int confirm = JOptionPane.showConfirmDialog(
                 view,
-                "Bạn có chắc muốn xóa nhân viên: " + stName + " (" + stId + ") không?",
+                "Bạn có chắc muốn xóa nhân viên: " + stName + " (" + stId + ") không?\nTài khoản đăng nhập của nhân viên này (nếu có) cũng bị xóa.",
                 "Xác nhận xóa",
                 JOptionPane.YES_NO_OPTION
         );
@@ -98,14 +108,20 @@ public class StaffController {
         return DbAction.fetch(view, dao::findAll, List.of());
     }
 
+    private Map<String, UserAccountDao.StaffAccount> fetchAccounts() {
+        return DbAction.fetch(view, accountDao::findStaffAccounts, Map.<String, UserAccountDao.StaffAccount>of());
+    }
+
     public void reload() {
         handleSearch();
     }
 
     public void loadData(List<Staff> list) {
+        Map<String, UserAccountDao.StaffAccount> accounts = fetchAccounts();
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
         for (Staff s : list) {
+            UserAccountDao.StaffAccount acc = accounts.get(s.getStaffId());
             model.addRow(new Object[]{
                     s.getStaffId(),
                     s.getFullName(),
@@ -114,10 +130,18 @@ public class StaffController {
                     s.getShift().toString(),
                     Formats.text(s.getHireDate()),
                     s.getPositionName(),
+                    acc == null ? StaffView.NO_ACCOUNT : acc.username(),
+                    passwordStatus(acc),
                     "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
         view.setCount(list.size());
+    }
+
+    // Mật khẩu được băm một chiều nên không hiện được mật khẩu thật, chỉ hiện trạng thái để theo dõi
+    private static String passwordStatus(UserAccountDao.StaffAccount acc) {
+        if (acc == null) return StaffView.NO_ACCOUNT;
+        return acc.mustChangePassword() ? "Tạm – chờ đổi" : "Đã thiết lập";
     }
 
     private void handleSearch() {
@@ -127,12 +151,14 @@ public class StaffController {
             return;
         }
 
+        Map<String, UserAccountDao.StaffAccount> accounts = fetchAccounts();
         List<Staff> filtered = fetchAll().stream()
                 .filter(s -> s.getStaffId().toLowerCase().contains(q)
                         || s.getFullName().toLowerCase().contains(q)
                         || s.getPhone().contains(q)
                         || s.getShift().toString().toLowerCase().contains(q)
-                        || s.getPositionName().toLowerCase().contains(q))
+                        || s.getPositionName().toLowerCase().contains(q)
+                        || (accounts.containsKey(s.getStaffId()) && accounts.get(s.getStaffId()).username().toLowerCase().contains(q)))
                 .toList();
 
         loadData(filtered);
@@ -171,8 +197,12 @@ public class StaffController {
         cbShift.setFont(UITheme.FONT_REGULAR);
         cbShift.setBackground(Color.WHITE);
 
+        // Danh sách chức vụ không có "Quản lý". Riêng khi sửa chính người quản lý thì thêm lại chức vụ này
+        // (và khóa ô chọn) để lưu không làm họ bị đổi sang chức vụ khác.
         JComboBox<Position> cbPosition = new JComboBox<>();
         for (Position p : DbAction.fetch(view, positionDao::findStaffPositions, List.<Position>of())) cbPosition.addItem(p);
+        boolean editingManager = isEdit && MANAGER_POSITION.equals(staffToEdit.getPositionId());
+        if (editingManager) cbPosition.addItem(new Position(MANAGER_POSITION, staffToEdit.getPositionName()));
         cbPosition.setFont(UITheme.FONT_REGULAR);
         cbPosition.setBackground(Color.WHITE);
 
@@ -197,8 +227,8 @@ public class StaffController {
                     break;
                 }
             }
-            // Quản lý không tự đổi chức vụ của mình, tránh mất quyền quản trị
-            cbPosition.setEnabled(!staffToEdit.getStaffId().equals(session.getStaffId()));
+            // Quản lý không đổi chức vụ của mình, tránh mất quyền quản trị
+            cbPosition.setEnabled(!editingManager && !staffToEdit.getStaffId().equals(session.getStaffId()));
         } else {
             txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             txtSalary.setText("8000000");
@@ -278,7 +308,8 @@ public class StaffController {
             } else {
                 Staff newStaff = new Staff(id, name, phone, salary, shift.getShiftId(), hireDate, managerId, position.getPositionId());
                 if (!DbAction.run(dialog, () -> dao.insert(newStaff))) return;
-                JOptionPane.showMessageDialog(dialog, "Thêm mới nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Thêm mới nhân viên thành công!\nBấm biểu tượng chìa khóa ở dòng nhân viên để cấp tài khoản đăng nhập.",
+                        "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
             loadData(fetchAll());
@@ -297,8 +328,6 @@ public class StaffController {
         dialog.setContentPane(panel);
         dialog.setVisible(true);
     }
-
-    private static final String MANAGER_POSITION = "QL";
 
     /** Hệ thống chỉ có 1 quản lý, nên nhân viên mới luôn thuộc quản lý đó. */
     private static String defaultManagerId(List<Staff> allStaff) {

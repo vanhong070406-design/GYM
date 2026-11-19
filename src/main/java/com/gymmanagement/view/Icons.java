@@ -156,4 +156,14 @@ public final class Icons {
             g.fill(head);
         });
     }
+
+    // Chìa khóa: cấp tài khoản / đặt lại mật khẩu
+    public static Icon key(Color color) {
+        return create(color, g -> {
+            g.draw(new java.awt.geom.Ellipse2D.Double(2.0, 8.0, 5.0, 5.0));
+            g.draw(new java.awt.geom.Line2D.Double(6.3, 8.7, 13.5, 1.5));
+            g.draw(new java.awt.geom.Line2D.Double(11.0, 4.0, 13.0, 6.0));
+            g.draw(new java.awt.geom.Line2D.Double(9.0, 6.0, 10.5, 7.5));
+        });
+    }
 }
