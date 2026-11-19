@@ -147,7 +147,7 @@ public class CheckinController {
 
     private void showCheckinDialog() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), "Check-in Hội Viên Mới", true);
-        dialog.setSize(460, 360);
+        dialog.setSize(620, 360);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 

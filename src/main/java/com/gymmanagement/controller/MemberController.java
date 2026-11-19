@@ -133,7 +133,7 @@ public class MemberController {
         boolean isEdit = (memberToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), 
                 isEdit ? "Chỉnh sửa thông tin hội viên" : "Thêm hội viên mới", true);
-        dialog.setSize(480, 520);
+        dialog.setSize(640, 520);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 

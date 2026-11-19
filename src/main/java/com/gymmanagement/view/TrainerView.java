@@ -54,7 +54,7 @@ public class TrainerView extends JPanel {
         lblSearch.setForeground(UITheme.TEXT_DARK);
 
         txtSearch = UITheme.createTextField(18);
-        txtSearch.setToolTipText("Mã PT, Họ tên, hoặc Chuyên môn...");
+        txtSearch.setToolTipText("Mã HLV, Họ tên, hoặc Chuyên môn...");
 
         btnSearch = UITheme.createPrimaryButton("Tìm kiếm");
 

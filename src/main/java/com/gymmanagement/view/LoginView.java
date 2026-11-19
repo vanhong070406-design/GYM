@@ -36,11 +36,6 @@ public class LoginView extends JFrame {
         headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
         headerPanel.setBackground(UITheme.BG_MAIN);
 
-        JLabel lblBadge = new JLabel("NUTRI BOOST");
-        lblBadge.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblBadge.setForeground(UITheme.PRIMARY_HOVER);
-        lblBadge.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         JLabel lblTitle = new JLabel("HỆ THỐNG QUẢN LÝ PHÒNG GYM");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTitle.setForeground(UITheme.TEXT_DARK);
@@ -51,8 +46,6 @@ public class LoginView extends JFrame {
         lblSubtitle.setForeground(UITheme.TEXT_MUTED);
         lblSubtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        headerPanel.add(lblBadge);
-        headerPanel.add(Box.createRigidArea(new Dimension(0, 8)));
         headerPanel.add(lblTitle);
         headerPanel.add(Box.createRigidArea(new Dimension(0, 4)));
         headerPanel.add(lblSubtitle);

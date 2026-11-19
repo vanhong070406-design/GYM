@@ -113,7 +113,6 @@ public class StaffController {
                     String.format("%,.0f", s.getSalary()),
                     s.getShift().toString(),
                     Formats.text(s.getHireDate()),
-                    s.getManagerId() == null ? "None" : s.getManagerId(),
                     s.getPositionName(),
                     "" // cột Thao tác: chỉ vẽ biểu tượng
             });
@@ -150,7 +149,7 @@ public class StaffController {
         boolean isEdit = (staffToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa nhân viên" : "Thêm nhân viên mới", true);
-        dialog.setSize(480, 530);
+        dialog.setSize(640, 530);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -178,7 +177,6 @@ public class StaffController {
         cbPosition.setBackground(Color.WHITE);
 
         JTextField txtHireDate = UITheme.createTextField(15);
-        JComboBox<ManagerOption> cbManager = createManagerCombo(fetchAll(), staffToEdit);
 
         if (isEdit) {
             txtId.setText(staffToEdit.getStaffId());
@@ -213,8 +211,7 @@ public class StaffController {
         addFormRow(panel, gbc, 3, "Mức lương (VNĐ) (*):", txtSalary);
         addFormRow(panel, gbc, 4, "Ca làm việc (*):", cbShift);
         addFormRow(panel, gbc, 5, "Ngày tuyển dụng (*):", txtHireDate);
-        addFormRow(panel, gbc, 6, "Mã quản lý:", cbManager);
-        addFormRow(panel, gbc, 7, "Chức vụ (*):", cbPosition);
+        addFormRow(panel, gbc, 6, "Chức vụ (*):", cbPosition);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);
@@ -231,16 +228,11 @@ public class StaffController {
             Shift shift = (Shift) cbShift.getSelectedItem();
             Position position = (Position) cbPosition.getSelectedItem();
             String hireDateText = txtHireDate.getText().trim();
-            ManagerOption manager = (ManagerOption) cbManager.getSelectedItem();
-            String managerId = manager == null ? null : manager.id();
+            // Hệ thống chỉ có 1 quản lý nên không cho chọn mã QL nữa: sửa thì giữ nguyên, thêm mới thì gán cho quản lý duy nhất
+            String managerId = isEdit ? staffToEdit.getManagerId() : defaultManagerId(fetchAll());
 
             if (id.isEmpty() || name.isEmpty() || phone.isEmpty() || salaryStr.isEmpty() || hireDateText.isEmpty() || shift == null || position == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường bắt buộc (*)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (id.equalsIgnoreCase(managerId)) {
-                JOptionPane.showMessageDialog(dialog, "Nhân viên không thể tự quản lý mình.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
@@ -297,7 +289,7 @@ public class StaffController {
         btnPanel.add(btnSave);
 
         gbc.gridx = 0;
-        gbc.gridy = 8;
+        gbc.gridy = 7;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(16, 6, 6, 6);
         panel.add(btnPanel, gbc);
@@ -306,60 +298,9 @@ public class StaffController {
         dialog.setVisible(true);
     }
 
-    /** Một lựa chọn trong ô Mã quản lý; id = null nghĩa là không có quản lý. */
-    private record ManagerOption(String id, String name) {
-        @Override
-        public String toString() {
-            return id == null ? "(Không có)" : id + " – " + name;
-        }
-    }
-
     private static final String MANAGER_POSITION = "QL";
 
-    /**
-     * Ô chọn quản lý chỉ gồm nhân viên có chức vụ Quản lý, lấy từ bảng Staff nên không thể chọn mã không tồn tại.
-     * Khi sửa, bỏ chính nhân viên đó và toàn bộ cấp dưới của họ, vì chọn những người này sẽ tạo vòng lặp quản lý.
-     * Không lo quản lý hiện tại bị mất khỏi danh sách: người đang có cấp dưới không đổi được khỏi chức vụ Quản lý.
-     * Khi thêm mới, chọn sẵn quản lý đầu tiên.
-     */
-    private static JComboBox<ManagerOption> createManagerCombo(List<Staff> allStaff, Staff editing) {
-        Set<String> excluded = editing == null ? Set.of() : selfAndSubordinates(allStaff, editing.getStaffId());
-
-        JComboBox<ManagerOption> cb = new JComboBox<>();
-        cb.addItem(new ManagerOption(null, null));
-        for (Staff s : allStaff) {
-            if (MANAGER_POSITION.equals(s.getPositionId()) && !excluded.contains(s.getStaffId())) {
-                cb.addItem(new ManagerOption(s.getStaffId(), s.getFullName()));
-            }
-        }
-        cb.setFont(UITheme.FONT_REGULAR);
-        cb.setBackground(Color.WHITE);
-
-        String selected = editing != null ? editing.getManagerId() : defaultManagerId(allStaff);
-        for (int i = 0; i < cb.getItemCount(); i++) {
-            if (Objects.equals(cb.getItemAt(i).id(), selected)) {
-                cb.setSelectedIndex(i);
-                break;
-            }
-        }
-        return cb;
-    }
-
-    /** Mã của rootId cùng mọi người do rootId quản lý trực tiếp hoặc gián tiếp. */
-    private static Set<String> selfAndSubordinates(List<Staff> allStaff, String rootId) {
-        Set<String> result = new HashSet<>();
-        Deque<String> queue = new ArrayDeque<>();
-        result.add(rootId);
-        queue.add(rootId);
-        while (!queue.isEmpty()) {
-            String boss = queue.poll();
-            for (Staff s : allStaff) {
-                if (boss.equals(s.getManagerId()) && result.add(s.getStaffId())) queue.add(s.getStaffId());
-            }
-        }
-        return result;
-    }
-
+    /** Hệ thống chỉ có 1 quản lý, nên nhân viên mới luôn thuộc quản lý đó. */
     private static String defaultManagerId(List<Staff> allStaff) {
         return allStaff.stream()
                 .filter(s -> MANAGER_POSITION.equals(s.getPositionId()))

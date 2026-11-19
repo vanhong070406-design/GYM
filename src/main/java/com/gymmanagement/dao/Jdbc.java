@@ -166,7 +166,7 @@ public final class Jdbc {
             Map.entry("UQ_UserAccount_Staff", "Nhân viên này đã có tài khoản."),
             Map.entry("UQ_UserAccount_Trainer", "Huấn luyện viên này đã có tài khoản."),
             Map.entry("CK_Staff_NotOwnManager", "Nhân viên không thể tự quản lý mình."),
-            Map.entry("CK_Staff_NotTrainerPosition", "Huấn luyện viên được quản lý ở màn hình Huấn luyện viên PT, không chọn chức vụ này cho nhân viên."),
+            Map.entry("CK_Staff_NotTrainerPosition", "Huấn luyện viên được quản lý ở màn hình Quản lý Huấn luyện viên, không chọn chức vụ này cho nhân viên."),
             Map.entry("CK_Staff_Salary", "Mức lương không được âm."),
             Map.entry("CK_GymPackage_Price", "Giá gói tập không được âm."),
             Map.entry("CK_GymPackage_Duration", "Thời hạn gói tập phải lớn hơn 0 ngày."),

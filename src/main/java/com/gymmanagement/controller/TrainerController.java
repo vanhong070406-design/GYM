@@ -148,7 +148,7 @@ public class TrainerController {
         boolean isEdit = (trainerToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa huấn luyện viên" : "Thêm huấn luyện viên mới", true);
-        dialog.setSize(460, 380);
+        dialog.setSize(620, 380);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -165,6 +165,7 @@ public class TrainerController {
         JTextField txtPhone = UITheme.createTextField(15);
         JTextField txtExp = UITheme.createTextField(15);
         JTextField txtSpecialty = UITheme.createTextField(15);
+        txtSpecialty.setToolTipText("Nhiều chuyên môn thì cách nhau bằng dấu phẩy");
 
         if (isEdit) {
             txtId.setText(trainerToEdit.getTrainerId());
@@ -182,7 +183,7 @@ public class TrainerController {
         addFormRow(panel, gbc, 1, "Họ và tên (*):", txtName);
         addFormRow(panel, gbc, 2, "Số điện thoại (*):", txtPhone);
         addFormRow(panel, gbc, 3, "Kinh nghiệm (năm):", txtExp);
-        addFormRow(panel, gbc, 4, "Chuyên môn, cách nhau dấu phẩy (*):", txtSpecialty);
+        addFormRow(panel, gbc, 4, "Chuyên môn (*):", txtSpecialty);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);

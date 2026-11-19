@@ -230,7 +230,7 @@ public class SubscriptionController {
             return;
         }
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), "Thu tiền " + sub.getSubscriptionId(), true);
-        dialog.setSize(480, 360);
+        dialog.setSize(640, 360);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -295,7 +295,7 @@ public class SubscriptionController {
                 : isRenew ? "Gia hạn " + renewFrom.getSubscriptionId() + " – " + renewFrom.getMemberName()
                 : "Đăng ký gói tập mới";
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), title, true);
-        dialog.setSize(540, isEdit ? 430 : 500);
+        dialog.setSize(700, isEdit ? 430 : 500);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 

@@ -22,7 +22,7 @@ public class MainView extends JFrame {
     public static final String CARD_PAYMENT = "PAYMENT";
     public static final String CARD_CHECKIN = "CHECKIN";
     public static final String CARD_TRAINER = "TRAINER";
-    /** Mã quyền của lịch tập PT (không còn card riêng, nằm trong trang chi tiết của màn hình Huấn luyện viên PT). */
+    /** Mã quyền của lịch tập PT (không còn card riêng, nằm trong trang chi tiết của màn hình Quản lý Huấn luyện viên). */
     public static final String CARD_PTSESSION = "PTSESSION";
     public static final String CARD_STAFF = "STAFF";
     public static final String CARD_EQUIPMENT = "EQUIPMENT";
@@ -149,13 +149,13 @@ public class MainView extends JFrame {
         menuPanel.setBorder(new EmptyBorder(4, 10, 10, 10));
 
         addMenuItem(menuPanel, "Quản lý Hội viên", CARD_MEMBER);
-        addMenuItem(menuPanel, "Quản lý Gói tập", CARD_PACKAGE);
         addMenuItem(menuPanel, "Đăng ký Gói tập", CARD_SUBSCRIPTION);
         addMenuItem(menuPanel, "Quản lý Thanh toán", CARD_PAYMENT);
-        addMenuItem(menuPanel, "Quản lý Check-in", CARD_CHECKIN);
-        addMenuItem(menuPanel, "Huấn luyện viên PT", CARD_TRAINER);
+        addMenuItem(menuPanel, "Check in / Check out", CARD_CHECKIN);
+        addMenuItem(menuPanel, "Quản lý Huấn luyện viên", CARD_TRAINER);
         addMenuItem(menuPanel, "Quản lý Nhân viên", CARD_STAFF);
         addMenuItem(menuPanel, "Quản lý Thiết bị", CARD_EQUIPMENT);
+        addMenuItem(menuPanel, "Quản lý Gói tập", CARD_PACKAGE);
 
         JScrollPane scrollMenu = new JScrollPane(menuPanel);
         scrollMenu.setBackground(UITheme.BG_SIDEBAR);

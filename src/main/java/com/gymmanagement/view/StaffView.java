@@ -14,7 +14,7 @@ import javax.swing.table.DefaultTableModel;
  * Sửa/xóa bằng biểu tượng ở cột Thao tác; nút làm mới nằm trên đầu bảng cạnh số nhân viên.
  */
 public class StaffView extends JPanel {
-    public static final int ACTION_COLUMN = 8;
+    public static final int ACTION_COLUMN = 7;
 
     private JTable table;
     private DefaultTableModel tableModel;
@@ -69,7 +69,7 @@ public class StaffView extends JPanel {
 
         String[] columns = {
                 "Mã NV", "Họ và Tên", "Số Điện Thoại", "Lương CB",
-                "Ca Làm Việc", "Ngày Tuyển", "Mã QL", "Chức Vụ", "Thao tác"
+                "Ca Làm Việc", "Ngày Tuyển", "Chức Vụ", "Thao tác"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -91,8 +91,8 @@ public class StaffView extends JPanel {
         UITheme.styleTable(table);
         table.getTableHeader().setReorderingAllowed(false); // cột Thao tác phải luôn nằm cuối
         // Cột mã ngắn nhường chỗ cho Họ tên và Ca làm việc
-        int[] widths = {72, 150, 112, 118, 160, 100, 66, 108};
-        int[] minWidths = {68, 110, 104, 100, 110, 96, 62, 80};
+        int[] widths = {72, 160, 112, 118, 160, 100, 120};
+        int[] minWidths = {68, 110, 104, 100, 110, 96, 80};
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
             table.getColumnModel().getColumn(i).setMinWidth(minWidths[i]);

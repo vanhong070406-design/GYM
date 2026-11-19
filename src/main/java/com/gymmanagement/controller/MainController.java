@@ -70,7 +70,7 @@ public class MainController {
             view.getPaymentView().setManageable(session.canManage(MainView.CARD_PAYMENT));
             return new PaymentController(view.getPaymentView(), session)::reload;
         });
-        screen(MainView.CARD_CHECKIN, "QUẢN LÝ LỊCH SỬ CHECK-IN / CHECK-OUT", () -> {
+        screen(MainView.CARD_CHECKIN, "CHECK IN / CHECK OUT", () -> {
             view.getCheckinView().setManageable(session.canManage(MainView.CARD_CHECKIN));
             return new CheckinController(view.getCheckinView(), session)::reload;
         });
@@ -104,7 +104,7 @@ public class MainController {
         if (canSession) {
             sessionView.setAccess(session.canManage(MainView.CARD_PTSESSION), session.isOwnOnly(MainView.CARD_PTSESSION));
         }
-        String title = canTrainer ? "HUẤN LUYỆN VIÊN & LỊCH TẬP PT" : "LỊCH TẬP PT CỦA TÔI";
+        String title = canTrainer ? "QUẢN LÝ HUẤN LUYỆN VIÊN" : "LỊCH TẬP PT CỦA TÔI";
         register(MainView.CARD_TRAINER, title, new TrainerScreenController(trainerView, session)::reload);
     }
 

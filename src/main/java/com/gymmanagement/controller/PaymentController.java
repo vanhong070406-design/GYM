@@ -125,7 +125,7 @@ public class PaymentController {
 
     private void showPaymentDialog() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), "Lập hóa đơn thanh toán mới", true);
-        dialog.setSize(480, 420);
+        dialog.setSize(640, 420);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 

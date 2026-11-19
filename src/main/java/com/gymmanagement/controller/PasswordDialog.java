@@ -15,7 +15,7 @@ final class PasswordDialog {
     /** Trả về true nếu đã đổi thành công. */
     static boolean show(Window owner, String username, boolean forced) {
         JDialog dialog = new JDialog(owner, "Đổi mật khẩu", Dialog.ModalityType.APPLICATION_MODAL);
-        dialog.setSize(460, 320);
+        dialog.setSize(620, 320);
         dialog.setLocationRelativeTo(owner);
         dialog.setResizable(false);
 

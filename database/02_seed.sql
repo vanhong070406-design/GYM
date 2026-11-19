@@ -34,15 +34,11 @@ INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('QL', 'EQUIPMENT', 'MANAGE'),
  ('QL', 'MAINTENANCE', 'MANAGE'),
  ('LT', 'MEMBER', 'MANAGE'),
- ('LT', 'PACKAGE', 'VIEW'),
  ('LT', 'SUBSCRIPTION', 'MANAGE'),
  ('LT', 'PAYMENT', 'MANAGE'),
  ('LT', 'CHECKIN', 'MANAGE'),
  ('LT', 'TRAINER', 'VIEW'),
- ('LT', 'PTSESSION', 'MANAGE'),
- ('KT', 'EQUIPMENT', 'MANAGE'),
- ('KT', 'MAINTENANCE', 'OWN'),
- ('HLV', 'PTSESSION', 'OWN');
+ ('LT', 'PTSESSION', 'MANAGE');
 
 INSERT INTO Shift (ShiftID, ShiftName, StartTime, EndTime) VALUES
  ('SANG',  N'Ca sáng',       '06:00', '14:00'),
@@ -108,13 +104,7 @@ INSERT INTO Trainer (TrainerID, FullName, Phone, ExperienceYears) VALUES
 INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID, TrainerID) VALUES
  ('admin', 0x8a5ff77e83d040a614e207d0270d1faefdfb87678a7511930a7e8082085348ed, 0xb074204d299b25065f00f16f2354fae3, 120000, 0, 'ST001', NULL),
  ('letan1', 0x6bcca1df932473bb33b41543d1cacff0eed6ba2f44db4013f6d90b75db3c430b, 0x5514c96d11cd90f23032dad3a9e9c3f0, 120000, 0, 'ST002', NULL),
- ('letan2', 0xbd40bb2e10cce8d5689b9c348179fa24b3330aec87392457bb1783db8f875b8c, 0xf59d8dfa67f84ceafb4d0fcf04c87d19, 120000, 0, 'ST003', NULL),
- ('kythuat', 0x92ec01a069ab7f14910590fc0d99fd04615d648c0926c4de0e8c5245347c0f79, 0x28013bcbbe916fe42adcf50deba74a3b, 120000, 0, 'ST004', NULL),
- ('tapvu', 0xff7b10254f6881a5aeffb3e3486def70fe735245c19a1af50bb64a7887e6c372, 0xab226e030d13c621afe52b6bd3c6df5e, 120000, 0, 'ST005', NULL),
- ('hlv1', 0x1def7c1be3e84a0bc0a83ee00ebf3d03eb857bcdb094bbb71b6828dc10b8e506, 0x89bf874486bb64a009d5afcd2d7be759, 120000, 0, NULL, 'TR001'),
- ('hlv2', 0x188759d9fb6649eab417739379086b97c077cf0ff4d133792a11afad5a45ab19, 0xb031da79fe7cdbc53807127a3fef46c1, 120000, 0, NULL, 'TR002'),
- ('hlv3', 0x3502944386bec31da9a4f803362e4bcd2c81fddad16d702a97cb047cf77fd791, 0x6dc0a453e0d297a2449ef16a6ceb68e0, 120000, 0, NULL, 'TR003'),
- ('hlv4', 0xa11feb8871b38d7cc8f30533dfa6cfbbb396895930a80e3e044031f0e4fbdbaa, 0x45ce68776a6e31d81656c3de8a542c9d, 120000, 0, NULL, 'TR004');
+ ('letan2', 0xbd40bb2e10cce8d5689b9c348179fa24b3330aec87392457bb1783db8f875b8c, 0xf59d8dfa67f84ceafb4d0fcf04c87d19, 120000, 0, 'ST003', NULL);
 
 INSERT INTO Specialty (SpecialtyName) VALUES
  (N'Thể hình'), (N'Tăng cơ'), (N'Giảm mỡ'), (N'Pilates'), (N'Yoga'),

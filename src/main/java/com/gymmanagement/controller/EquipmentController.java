@@ -157,7 +157,7 @@ public class EquipmentController {
         boolean isEdit = (eqToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa thiết bị" : "Thêm thiết bị mới", true);
-        dialog.setSize(480, 390);
+        dialog.setSize(640, 390);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 

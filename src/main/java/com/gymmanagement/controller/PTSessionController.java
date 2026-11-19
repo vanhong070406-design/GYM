@@ -167,7 +167,7 @@ public class PTSessionController {
         boolean isEdit = (sesToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa lịch tập PT" : "Đặt lịch tập PT mới", true);
-        dialog.setSize(480, 420);
+        dialog.setSize(640, 420);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
@@ -247,7 +247,7 @@ public class PTSessionController {
         addFormRow(panel, gbc, 0, "Mã buổi tập (*):", txtId);
         addFormRow(panel, gbc, 1, "Thời gian bắt đầu (*):", txtStart);
         addFormRow(panel, gbc, 2, "Thời gian kết thúc (*):", txtEnd);
-        addFormRow(panel, gbc, 3, "Huấn luyện viên PT (*):", cbTrainer);
+        addFormRow(panel, gbc, 3, "Huấn luyện viên (*):", cbTrainer);
         addFormRow(panel, gbc, 4, "Hội viên (*):", cbMember);
         addFormRow(panel, gbc, 5, "Trạng thái:", cbStatus);
 

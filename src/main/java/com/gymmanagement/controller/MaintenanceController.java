@@ -193,7 +193,7 @@ public class MaintenanceController {
         boolean isEdit = toEdit != null;
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Cập nhật phiếu bảo trì" : "Phân công bảo trì thiết bị mới", true);
-        dialog.setSize(480, 420);
+        dialog.setSize(640, 420);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 

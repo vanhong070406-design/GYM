@@ -194,11 +194,10 @@ Tất cả dùng mật khẩu `123456`, chỉ để thử nghiệm; hãy đổi 
 | Tên đăng nhập | Người dùng | Chức vụ | Thấy và làm được |
 |---|---|---|---|
 | `admin` | ST001 | Quản lý | Toàn bộ, gồm Dashboard, Nhân viên và Tài khoản |
-| `letan1`, `letan2` | ST002, ST003 | Lễ tân | Hội viên, Đăng ký, Thanh toán, Check-in, Lịch PT; xem Gói tập, HLV, Khu vực |
-| `kythuat` | ST004 | Kỹ thuật viên | Thiết bị; cập nhật phiếu bảo trì của mình; xem Khu vực |
-| `tapvu` | ST005 | Tạp vụ | Cập nhật việc vệ sinh của mình; xem Khu vực |
-| `hlv1` … `hlv4` | TR001 … TR004 | Huấn luyện viên | Cập nhật trạng thái buổi PT của mình; xem Khu vực |
+| `letan1`, `letan2` | ST002, ST003 | Lễ tân | Hội viên, Đăng ký gói, Thanh toán, Check in / Check out, Huấn luyện viên (xem) và lịch PT |
 
-Nhân viên hoặc HLV mới: Quản lý vào **Quản lý Tài khoản → Tạo tài khoản**. Ma trận quyền đầy đủ ở `docs/DATABASE_DESIGN.md`.
+Chỉ Quản lý và Lễ tân đăng nhập được; Lễ tân không vào được Nhân viên, Thiết bị, Gói tập.
+
+Ma trận quyền đầy đủ ở `docs/DATABASE_DESIGN.md`.
 
 Nâng cấp database bản cũ: chạy lại `setup_database.ps1` (macOS: `setup_database.sh`), không có `-Reset`; dữ liệu được giữ nguyên. Script chạy `04_upgrade_roles.sql` và `05_equipment_status.sql` (đổi trạng thái thiết bị: Tốt → Hoạt động tốt, Đang bảo trì → Tới hạn bảo trì định kỳ).

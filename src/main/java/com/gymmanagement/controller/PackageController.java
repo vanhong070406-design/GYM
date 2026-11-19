@@ -123,7 +123,7 @@ public class PackageController {
         boolean isEdit = (pkgToEdit != null);
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view),
                 isEdit ? "Chỉnh sửa gói tập" : "Thêm gói tập mới", true);
-        dialog.setSize(460, 420);
+        dialog.setSize(620, 420);
         dialog.setLocationRelativeTo(view);
         dialog.setResizable(false);
 
