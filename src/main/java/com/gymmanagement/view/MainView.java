@@ -55,7 +55,7 @@ public class MainView extends JFrame {
     private final Map<String, Component> sidebarGaps = new HashMap<>();
 
     public MainView() {
-        setTitle("Phần mềm Quản lý Phòng Gym - Nutri Boost ProMax");
+        setTitle("Phần mềm Quản lý Phòng Gym");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1240, 780);
         setMinimumSize(new Dimension(1050, 650));
@@ -134,13 +134,7 @@ public class MainView extends JFrame {
         lblBrand.setFont(new Font("Segoe UI", Font.BOLD, 17));
         lblBrand.setForeground(UITheme.TEXT_LIGHT);
 
-        JLabel lblSub = new JLabel("Nutri Boost ProMax");
-        lblSub.setFont(UITheme.FONT_SMALL);
-        lblSub.setForeground(UITheme.SIDEBAR_TEXT_MUTED);
-
         brandPanel.add(lblBrand);
-        brandPanel.add(Box.createRigidArea(new Dimension(0, 4)));
-        brandPanel.add(lblSub);
 
         // Danh sách các nút chức năng
         JPanel menuPanel = new JPanel();
