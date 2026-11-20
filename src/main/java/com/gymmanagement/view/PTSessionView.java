@@ -146,14 +146,10 @@ public class PTSessionView extends JPanel {
         trainerColumnsShown = visible;
     }
 
-    /**
-     * Đặt quyền cho bảng lịch tập.
-     * canManage: đặt lịch, sửa, xóa mọi buổi. ownOnly (HLV): chỉ sửa buổi của mình, không đặt và không xóa.
-     */
-    public void setAccess(boolean canManage, boolean ownOnly) {
+    /** Đặt quyền cho bảng lịch tập: có quyền quản lý thì đặt lịch, sửa, xóa; chỉ xem thì ẩn nút thêm và cột Thao tác. */
+    public void setManageable(boolean canManage) {
         btnAdd.setVisible(canManage);
         if (canManage) actionColumn.setActions(Action.EDIT, Action.DELETE);
-        else if (ownOnly) actionColumn.setActions(Action.EDIT);
         else actionColumn.setActions();
     }
 

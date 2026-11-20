@@ -94,7 +94,7 @@ GymManagement/
 ### 3.1. Đăng nhập (`LoginView` / `LoginController`)
 - Xác thực tài khoản đăng nhập và mật khẩu.
 - Kiểm tra tính hợp lệ dữ liệu và cảnh báo lỗi bằng tiếng Việt.
-- Mỗi nhân viên và HLV đăng nhập bằng tài khoản riêng, chỉ thấy các chức năng theo chức vụ (xem mục Tài khoản mẫu).
+- Chỉ Quản lý và Lễ tân có tài khoản đăng nhập, mỗi người một tài khoản riêng và chỉ thấy các chức năng theo chức vụ (xem mục Tài khoản mẫu). Kỹ thuật viên, tạp vụ và HLV không được cấp tài khoản.
 
 ### 3.2. Dashboard Tổng quan (`DashboardView` / `DashboardController`)
 - **Thẻ KPI tổng quan:** Tổng hội viên, Số hội viên đang hoạt động, Số gói tập, Số lượt check-in hôm nay, Tổng doanh thu tích lũy.
@@ -125,10 +125,10 @@ GymManagement/
 Một mục menu gồm 2 trang: danh sách HLV và trang chi tiết của từng HLV.
 - **Danh sách HLV** (`TrainerController`): các trường `TrainerID`, `FullName`, `Phone`, `ExperienceYears`; chuyên môn lưu ở `Specialty` và `TrainerSpecialty`. Thêm, sửa, xóa HLV. Bấm **Xem chi tiết ›** (hoặc nháy đúp một dòng) để mở trang chi tiết; nút **Lịch tập tất cả HLV** mở lịch của mọi HLV.
 - **Trang chi tiết** (`TrainerDetailView`): thông tin HLV, thống kê số buổi (tổng, hoàn thành, sắp tới, đã hủy) và bảng lịch tập PT của HLV đó (`PTSessionView` / `PTSessionController`, các trường `SessionID`, `StartTime`, `EndTime`, `Status`, `TrainerID`, `MemberID`). Đặt lịch từ trang này tự chọn sẵn HLV.
-- Phân quyền: nút của danh sách HLV theo quyền `TRAINER`, nút của lịch tập theo quyền `PTSESSION`. Tài khoản HLV vào thẳng trang của mình.
+- Phân quyền: nút của danh sách HLV theo quyền `TRAINER`, nút của lịch tập theo quyền `PTSESSION`.
 
 ### 3.9. Quản lý nhân viên (`StaffView` / `StaffController`)
-- Các trường: `StaffID`, `FullName`, `Phone`, `Salary`, `ShiftID`, `HireDate`, `ManagerID`, `PositionID`; ca làm việc lưu ở `Shift`.
+- Các trường: `StaffID`, `FullName`, `Phone`, `Salary`, `ShiftID`, `HireDate`, `PositionID`; ca làm việc lưu ở `Shift`. Hệ thống chỉ có 1 quản lý (chức vụ `QL`) nên không lưu mã quản lý.
 - Phân chia ca làm việc (ca sáng, ca chiều, ca hành chính), quản lý tiền lương.
 
 ### 3.10. Quản lý khu vực phòng tập (`AreaView` / `AreaController`)
@@ -196,8 +196,8 @@ Tất cả dùng mật khẩu `123456`, chỉ để thử nghiệm; hãy đổi 
 | `admin` | ST001 | Quản lý | Toàn bộ, gồm Dashboard, Nhân viên và Tài khoản |
 | `letan1`, `letan2` | ST002, ST003 | Lễ tân | Hội viên, Đăng ký gói, Thanh toán, Check in / Check out, Huấn luyện viên (xem) và lịch PT |
 
-Chỉ Quản lý và Lễ tân đăng nhập được; Lễ tân không vào được Nhân viên, Thiết bị, Gói tập.
+Chỉ Quản lý và Lễ tân đăng nhập được; Lễ tân không vào được Nhân viên, Thiết bị, Gói tập. Quản lý cấp tài khoản cho Lễ tân mới bằng biểu tượng chìa khóa ở màn Nhân viên; chức vụ khác có chìa khóa mờ. Chuyển một Lễ tân sang chức vụ khác thì ứng dụng hỏi xác nhận rồi xóa tài khoản của người đó.
 
 Ma trận quyền đầy đủ ở `docs/DATABASE_DESIGN.md`.
 
-Nâng cấp database bản cũ: chạy lại `setup_database.ps1` (macOS: `setup_database.sh`), không có `-Reset`; dữ liệu được giữ nguyên. Script chạy `04_upgrade_roles.sql` và `05_equipment_status.sql` (đổi trạng thái thiết bị: Tốt → Hoạt động tốt, Đang bảo trì → Tới hạn bảo trì định kỳ).
+Nâng cấp database bản cũ: chạy lại `setup_database.ps1` (macOS: `setup_database.sh`), không có `-Reset`; dữ liệu được giữ nguyên. Script chạy `04_upgrade_roles.sql`, `05_equipment_status.sql` (đổi trạng thái thiết bị: Tốt → Hoạt động tốt, Đang bảo trì → Tới hạn bảo trì định kỳ), `06_drop_manager.sql` (bỏ cột `ManagerID` của bảng `Staff`) và `07_login_positions.sql` (chỉ Quản lý, Lễ tân có tài khoản: **xóa tài khoản cũ của kỹ thuật viên, tạp vụ, HLV** như `kythuat`, `tapvu`, `hlv1`…).

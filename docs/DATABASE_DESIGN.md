@@ -1,7 +1,7 @@
 # Thiết kế cơ sở dữ liệu – Quản lý Phòng Gym
 
 - Hệ quản trị: SQL Server 2022, database `GymManagementDB`
-- Script nằm trong thư mục `database/`: `01_schema.sql` (tạo bảng), `02_seed.sql` (dữ liệu mẫu), `03_app_login.sql` (login cho ứng dụng), `04_upgrade_roles.sql` và `05_equipment_status.sql` (nâng cấp database cũ)
+- Script nằm trong thư mục `database/`: `01_schema.sql` (tạo bảng), `02_seed.sql` (dữ liệu mẫu), `03_app_login.sql` (login cho ứng dụng), `04_upgrade_roles.sql`, `05_equipment_status.sql`, `06_drop_manager.sql` và `07_login_positions.sql` (nâng cấp database cũ)
 
 ## 1. Các bảng và chức năng
 
@@ -31,7 +31,8 @@ Lúc đầu dữ liệu chỉ lưu trong bộ nhớ (List trong Java) nên có n
 | `Staff.shift = "Ca sáng (06:00 - 14:00)"` | Gộp tên ca và giờ vào một ô, vi phạm 1NF. Ngoài ra tên ca quyết định giờ làm nên bị phụ thuộc bắc cầu | Tách bảng `Shift`, `Staff` chỉ giữ `ShiftID` |
 | `Trainer.specialty = "Giảm mỡ, Yoga"` | Một ô chứa nhiều giá trị (vi phạm 1NF) | Tách `Specialty` và `TrainerSpecialty` (quan hệ N-N) |
 | `Trainer.experience = "6 năm"` | Số lẫn với chữ | Đổi thành `ExperienceYears INT` |
-| `managerId = "None"`, `checkoutTime = "--:--"` | Dùng chuỗi giả thay cho NULL nên không đặt khóa ngoại được | Dùng `NULL` |
+| `managerId = "None"` | Dùng chuỗi giả thay cho NULL. Hơn nữa phòng gym chỉ có 1 quản lý nên cột này không mang thông tin gì | Bỏ cột `ManagerID`, quản lý là nhân viên có chức vụ `QL` |
+| `checkoutTime = "--:--"` | Dùng chuỗi giả thay cho NULL | Dùng `NULL` |
 | Ngày và tiền lưu bằng `String`, `double` | Sai kiểu, tiền dễ bị sai số | Dùng `DATE`, `DATETIME2`, `DECIMAL(15,2)` |
 | Mật khẩu viết cứng trong `LoginController` | Không có chỗ lưu tài khoản | Thêm bảng `UserAccount`, mật khẩu băm PBKDF2 có salt |
 | Bảo trì chưa có khóa chính | Không phân biệt được các lần bảo trì | Khóa tổ hợp (StaffID, EquipmentID, MaintenanceDate) |
@@ -44,9 +45,9 @@ Một bảng đạt BCNF khi vế trái của mọi phụ thuộc hàm không t�
 |---|---|---|
 | `Shift` | ShiftID → ShiftName, StartTime, EndTime; ShiftName → ShiftID, ... | ShiftID, ShiftName |
 | `Staff` | StaffID → các cột còn lại; Phone → các cột còn lại | StaffID, Phone |
-| `Position` | PositionID ↔ PositionName | PositionID, PositionName |
+| `Position` | PositionID ↔ PositionName; PositionID → CanLogin | PositionID, PositionName |
 | `PositionPermission` | {PositionID, ScreenCode} → AccessLevel | {PositionID, ScreenCode} |
-| `UserAccount` | Username → các cột còn lại (StaffID, TrainerID cũng là khóa vì mỗi người chỉ có một tài khoản) | Username, StaffID, TrainerID |
+| `UserAccount` | Username → các cột còn lại (StaffID cũng là khóa vì mỗi nhân viên chỉ có một tài khoản) | Username, StaffID |
 | `Member` | MemberID → các cột còn lại; Phone → ...; Email → ... | MemberID, Phone, Email |
 | `GymPackage` | PackageID ↔ PackageName, các cột còn lại phụ thuộc vào cả hai | PackageID, PackageName |
 | `Subscription` | SubscriptionID → ...; {MemberID, PackageID, StartDate} → ... | cả hai |
@@ -74,11 +75,9 @@ Một bảng đạt BCNF khi vế trái của mọi phụ thuộc hàm không t�
 ```mermaid
 erDiagram
     Shift ||--o{ Staff : "ca làm"
-    Staff ||--o{ Staff : "quản lý"
     Position ||--o{ Staff : "chức vụ"
     Position ||--o{ PositionPermission : "quyền"
     Staff ||--o| UserAccount : "đăng nhập"
-    Trainer ||--o| UserAccount : "đăng nhập"
     Member ||--o{ Subscription : "đăng ký"
     GymPackage ||--o{ Subscription : "thuộc gói"
     Subscription ||--o{ Payment : "được trả"
@@ -98,12 +97,16 @@ erDiagram
 - **Xóa**: khóa ngoại chặn xóa khi còn dữ liệu con (ví dụ hội viên đã có đăng ký thì không xóa được). Riêng `TrainerSpecialty` và `UserAccount` tự xóa theo huấn luyện viên/nhân viên.
 - **Không trùng**: số điện thoại, email, tên gói, tên ca, tên chuyên môn là duy nhất. Một huấn luyện viên không có hai buổi bắt đầu cùng lúc.
 - **Miền giá trị**: tiền không âm, số tiền thanh toán lớn hơn 0, giờ kết thúc không trước giờ bắt đầu.
+- **Chức vụ đăng nhập** (trigger, vì CHECK không tham chiếu được bảng khác):
+  - `TR_UserAccount_CanLogin`: không cấp tài khoản cho nhân viên có chức vụ `CanLogin = 0`.
+  - `TR_Staff_CanLogin`: nhân viên còn tài khoản thì không đổi sang chức vụ `CanLogin = 0`. Ứng dụng hỏi xác nhận rồi xóa tài khoản và đổi chức vụ trong cùng một transaction.
+  - `TR_Position_CanLogin`: không tắt `CanLogin` của chức vụ khi còn nhân viên chức vụ đó có tài khoản.
 
 ## 6. Phân quyền
 
-Quyền lưu trong bảng `PositionPermission`, muốn đổi quyền chỉ cần sửa bảng này, không phải sửa code. Nhân viên lấy quyền theo `Staff.PositionID`, huấn luyện viên luôn có chức vụ `HLV`.
+Quyền lưu trong bảng `PositionPermission`, muốn đổi quyền chỉ cần sửa bảng này, không phải sửa code. Nhân viên lấy quyền theo `Staff.PositionID`.
 
-- `MANAGE`: thêm, sửa, xóa. `VIEW`: chỉ xem. `OWN`: chỉ thấy việc của mình và chỉ cập nhật trạng thái/ghi chú. Không có dòng nào thì không thấy màn hình đó.
+- `MANAGE`: thêm, sửa, xóa. `VIEW`: chỉ xem. Không có dòng nào thì không thấy màn hình đó.
 - Quản lý có `MANAGE` ở tất cả màn hình.
 
 | Màn hình | Lễ tân |
@@ -113,7 +116,7 @@ Quyền lưu trong bảng `PositionPermission`, muốn đổi quyền chỉ cầ
 | Lịch PT | MANAGE |
 | Gói tập, Thiết bị, Bảo trì, Nhân viên, Dashboard | (không có, chỉ Quản lý) |
 
-Chỉ có hai chức vụ đăng nhập được là Quản lý và Lễ tân. Các chức vụ khác (kỹ thuật viên, tạp vụ, huấn luyện viên) chỉ là hồ sơ nhân sự, không có tài khoản.
+Chỉ có hai chức vụ đăng nhập được là Quản lý và Lễ tân (`Position.CanLogin = 1`). Các chức vụ khác (kỹ thuật viên, tạp vụ, huấn luyện viên) chỉ là hồ sơ nhân sự, không có tài khoản: ở màn Nhân viên, biểu tượng chìa khóa của họ bị làm mờ và cột tài khoản ghi "Không áp dụng". Huấn luyện viên nằm ở bảng `Trainer` nên không bao giờ có tài khoản. Muốn cho thêm chức vụ đăng nhập thì đặt `CanLogin = 1` và thêm quyền vào `PositionPermission`, không phải sửa code.
 
 Quản lý tạo tài khoản với mật khẩu tạm, người dùng phải đổi mật khẩu ở lần đăng nhập đầu tiên.
 

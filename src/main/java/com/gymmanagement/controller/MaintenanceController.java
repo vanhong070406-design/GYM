@@ -7,8 +7,6 @@ import com.gymmanagement.model.Equipment;
 import com.gymmanagement.model.MaintenanceAssignment;
 import com.gymmanagement.model.Position;
 import com.gymmanagement.model.Staff;
-import com.gymmanagement.model.UserSession;
-import com.gymmanagement.view.MainView;
 import com.gymmanagement.view.MaintenanceView;
 import com.gymmanagement.view.UITheme;
 
@@ -28,7 +26,6 @@ import java.util.List;
  */
 public class MaintenanceController {
     private final MaintenanceView view;
-    private final UserSession session;
     /** Phiếu đang hiện trong bảng, cùng thứ tự với các dòng. */
     private List<MaintenanceAssignment> shown = List.of();
     /** Đang trả ô trạng thái về giá trị cũ, bỏ qua sự kiện do chính việc này sinh ra. */
@@ -37,9 +34,8 @@ public class MaintenanceController {
     private final StaffDao staffDao = new StaffDao();
     private final EquipmentDao equipmentDao = new EquipmentDao();
 
-    public MaintenanceController(MaintenanceView view, UserSession session) {
+    public MaintenanceController(MaintenanceView view) {
         this.view = view;
-        this.session = session;
         initListeners();
         reload();
     }
@@ -141,10 +137,7 @@ public class MaintenanceController {
     }
 
     private List<MaintenanceAssignment> fetchAll() {
-        List<MaintenanceAssignment> all = DbAction.fetch(view, dao::findAll, List.of());
-        if (!session.isOwnOnly(MainView.CARD_MAINTENANCE)) return all;
-        // Kỹ thuật viên chỉ thấy phiếu được giao cho mình
-        return all.stream().filter(m -> m.getStaffId().equals(session.getStaffId())).toList();
+        return DbAction.fetch(view, dao::findAll, List.of());
     }
 
     public void reload() {

@@ -17,8 +17,10 @@ import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -120,8 +122,10 @@ public class StaffController {
         Map<String, UserAccountDao.StaffAccount> accounts = fetchAccounts();
         DefaultTableModel model = view.getTableModel();
         model.setRowCount(0);
+        Set<String> loginStaffIds = new HashSet<>();
         for (Staff s : list) {
             UserAccountDao.StaffAccount acc = accounts.get(s.getStaffId());
+            if (s.canLogin()) loginStaffIds.add(s.getStaffId());
             model.addRow(new Object[]{
                     s.getStaffId(),
                     s.getFullName(),
@@ -130,16 +134,23 @@ public class StaffController {
                     s.getShift().toString(),
                     Formats.text(s.getHireDate()),
                     s.getPositionName(),
-                    acc == null ? StaffView.NO_ACCOUNT : acc.username(),
-                    passwordStatus(acc),
+                    usernameText(s, acc),
+                    passwordStatus(s, acc),
                     "" // cột Thao tác: chỉ vẽ biểu tượng
             });
         }
+        view.setLoginStaffIds(loginStaffIds);
         view.setCount(list.size());
     }
 
+    private static String usernameText(Staff s, UserAccountDao.StaffAccount acc) {
+        if (!s.canLogin()) return StaffView.NOT_APPLICABLE;
+        return acc == null ? StaffView.NO_ACCOUNT : acc.username();
+    }
+
     // Mật khẩu được băm một chiều nên không hiện được mật khẩu thật, chỉ hiện trạng thái để theo dõi
-    private static String passwordStatus(UserAccountDao.StaffAccount acc) {
+    private static String passwordStatus(Staff s, UserAccountDao.StaffAccount acc) {
+        if (!s.canLogin()) return StaffView.NOT_APPLICABLE;
         if (acc == null) return StaffView.NO_ACCOUNT;
         return acc.mustChangePassword() ? "Tạm – chờ đổi" : "Đã thiết lập";
     }
@@ -202,7 +213,7 @@ public class StaffController {
         JComboBox<Position> cbPosition = new JComboBox<>();
         for (Position p : DbAction.fetch(view, positionDao::findStaffPositions, List.<Position>of())) cbPosition.addItem(p);
         boolean editingManager = isEdit && MANAGER_POSITION.equals(staffToEdit.getPositionId());
-        if (editingManager) cbPosition.addItem(new Position(MANAGER_POSITION, staffToEdit.getPositionName()));
+        if (editingManager) cbPosition.addItem(new Position(MANAGER_POSITION, staffToEdit.getPositionName(), staffToEdit.canLogin()));
         cbPosition.setFont(UITheme.FONT_REGULAR);
         cbPosition.setBackground(Color.WHITE);
 
@@ -258,8 +269,6 @@ public class StaffController {
             Shift shift = (Shift) cbShift.getSelectedItem();
             Position position = (Position) cbPosition.getSelectedItem();
             String hireDateText = txtHireDate.getText().trim();
-            // Hệ thống chỉ có 1 quản lý nên không cho chọn mã QL nữa: sửa thì giữ nguyên, thêm mới thì gán cho quản lý duy nhất
-            String managerId = isEdit ? staffToEdit.getManagerId() : defaultManagerId(fetchAll());
 
             if (id.isEmpty() || name.isEmpty() || phone.isEmpty() || salaryStr.isEmpty() || hireDateText.isEmpty() || shift == null || position == null) {
                 JOptionPane.showMessageDialog(dialog, "Vui lòng nhập đầy đủ các trường bắt buộc (*)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
@@ -282,33 +291,36 @@ public class StaffController {
                 return;
             }
 
-            // Người đang quản lý nhân viên khác phải giữ chức vụ Quản lý, nếu không cấp dưới sẽ đứng tên một người không phải quản lý
-            if (isEdit && !MANAGER_POSITION.equals(position.getPositionId())) {
-                List<String> reports = DbAction.fetch(dialog, () -> dao.findDirectReportIds(id), null);
-                if (reports == null) return;
-                if (!reports.isEmpty()) {
-                    JOptionPane.showMessageDialog(dialog,
-                            name + " đang quản lý " + reports.size() + " nhân viên (" + String.join(", ", reports) + ").\n"
-                                    + "Hãy chuyển họ sang quản lý khác trước khi đổi chức vụ.",
-                            "Không thể đổi chức vụ", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-            }
-
             if (isEdit) {
+                // Chuyển sang chức vụ không được đăng nhập mà đang có tài khoản: hỏi trước, đồng ý thì xóa tài khoản
+                // (đọc lại từ database vì máy khác có thể vừa cấp tài khoản cho nhân viên này)
+                UserAccountDao.StaffAccount account = position.canLogin() ? null : fetchAccounts().get(staffToEdit.getStaffId());
+                if (account != null) {
+                    int confirm = JOptionPane.showConfirmDialog(dialog,
+                            "Chức vụ " + position.getPositionName() + " không được có tài khoản đăng nhập.\n"
+                                    + "Tài khoản \"" + account.username() + "\" của nhân viên này sẽ bị xóa. Tiếp tục?",
+                            "Xác nhận đổi chức vụ", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                    if (confirm != JOptionPane.YES_OPTION) return;
+                }
                 staffToEdit.setFullName(name);
                 staffToEdit.setPhone(phone);
                 staffToEdit.setSalary(salary);
                 staffToEdit.setShiftId(shift.getShiftId());
                 staffToEdit.setHireDate(hireDate);
-                staffToEdit.setManagerId(managerId);
                 staffToEdit.setPositionId(position.getPositionId());
-                if (!DbAction.run(dialog, () -> dao.update(staffToEdit))) return;
-                JOptionPane.showMessageDialog(dialog, "Cập nhật nhân viên thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                Runnable save = account != null ? () -> dao.updateAndDeleteAccount(staffToEdit) : () -> dao.update(staffToEdit);
+                if (!DbAction.run(dialog, save)) return;
+                JOptionPane.showMessageDialog(dialog,
+                        account != null ? "Cập nhật nhân viên thành công! Đã xóa tài khoản \"" + account.username() + "\"."
+                                        : "Cập nhật nhân viên thành công!",
+                        "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                Staff newStaff = new Staff(id, name, phone, salary, shift.getShiftId(), hireDate, managerId, position.getPositionId());
+                Staff newStaff = new Staff(id, name, phone, salary, shift.getShiftId(), hireDate, position.getPositionId());
                 if (!DbAction.run(dialog, () -> dao.insert(newStaff))) return;
-                JOptionPane.showMessageDialog(dialog, "Thêm mới nhân viên thành công!\nBấm biểu tượng chìa khóa ở dòng nhân viên để cấp tài khoản đăng nhập.",
+                JOptionPane.showMessageDialog(dialog,
+                        position.canLogin()
+                                ? "Thêm mới nhân viên thành công!\nBấm biểu tượng chìa khóa ở dòng nhân viên để cấp tài khoản đăng nhập."
+                                : "Thêm mới nhân viên thành công!",
                         "Thông báo", JOptionPane.INFORMATION_MESSAGE);
             }
 
@@ -327,15 +339,6 @@ public class StaffController {
 
         dialog.setContentPane(panel);
         dialog.setVisible(true);
-    }
-
-    /** Hệ thống chỉ có 1 quản lý, nên nhân viên mới luôn thuộc quản lý đó. */
-    private static String defaultManagerId(List<Staff> allStaff) {
-        return allStaff.stream()
-                .filter(s -> MANAGER_POSITION.equals(s.getPositionId()))
-                .map(Staff::getStaffId)
-                .findFirst()
-                .orElse(null);
     }
 
     private void addFormRow(JPanel panel, GridBagConstraints gbc, int row, String label, JComponent comp) {

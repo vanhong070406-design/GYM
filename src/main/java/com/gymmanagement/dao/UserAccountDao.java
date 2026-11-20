@@ -10,20 +10,19 @@ public class UserAccountDao {
     // Tài khoản của một nhân viên: tên đăng nhập và còn đang dùng mật khẩu tạm hay không
     public record StaffAccount(String staffId, String username, boolean mustChangePassword) {}
 
-    /** Chức vụ của tài khoản luôn lấy theo nhân viên/HLV sở hữu, nên đổi chức vụ là quyền đổi theo. */
+    /** Tài khoản luôn thuộc về một nhân viên; chức vụ lấy theo nhân viên nên đổi chức vụ là quyền đổi theo. */
     private static final String OWNER_JOIN = "FROM UserAccount a "
-            + "LEFT JOIN Staff s ON s.StaffID = a.StaffID "
-            + "LEFT JOIN Trainer t ON t.TrainerID = a.TrainerID "
-            + "JOIN Position p ON p.PositionID = COALESCE(s.PositionID, 'HLV') ";
+            + "JOIN Staff s ON s.StaffID = a.StaffID "
+            + "JOIN Position p ON p.PositionID = s.PositionID ";
 
     /** Trả về phiên đăng nhập, hoặc null nếu sai tên đăng nhập/mật khẩu. */
     public UserSession login(String username, String password) {
-        return Jdbc.queryOne("SELECT a.Username, a.PasswordHash, a.PasswordSalt, a.Iterations, a.MustChangePassword, a.StaffID, a.TrainerID, "
-                        + "COALESCE(s.FullName, t.FullName), p.PositionID, p.PositionName " + OWNER_JOIN + "WHERE a.Username = ?",
+        return Jdbc.queryOne("SELECT a.Username, a.PasswordHash, a.PasswordSalt, a.Iterations, a.MustChangePassword, a.StaffID, "
+                        + "s.FullName, p.PositionID, p.PositionName " + OWNER_JOIN + "WHERE a.Username = ?",
                 rs -> {
                     if (!PasswordHasher.matches(password, rs.getBytes(2), rs.getBytes(3), rs.getInt(4))) return null;
-                    return new UserSession(rs.getString(1), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(10),
-                            rs.getBoolean(5), loadPermissions(rs.getString(9)));
+                    return new UserSession(rs.getString(1), rs.getString(6), rs.getString(7), rs.getString(9),
+                            rs.getBoolean(5), loadPermissions(rs.getString(8)));
                 }, username);
     }
 
@@ -47,7 +46,7 @@ public class UserAccountDao {
 
     // Tài khoản của mọi nhân viên đã được cấp, khóa theo mã nhân viên
     public Map<String, StaffAccount> findStaffAccounts() {
-        List<StaffAccount> rows = Jdbc.query("SELECT StaffID, Username, MustChangePassword FROM UserAccount WHERE StaffID IS NOT NULL",
+        List<StaffAccount> rows = Jdbc.query("SELECT StaffID, Username, MustChangePassword FROM UserAccount",
                 rs -> new StaffAccount(rs.getString(1), rs.getString(2), rs.getBoolean(3)));
         Map<String, StaffAccount> result = new HashMap<>();
         for (StaffAccount a : rows) result.put(a.staffId(), a);
@@ -59,11 +58,12 @@ public class UserAccountDao {
         return Jdbc.queryOne("SELECT 1 FROM UserAccount WHERE Username = ?", rs -> rs.getInt(1), username) != null;
     }
 
-    // Cấp tài khoản mới cho nhân viên; mustChange = bắt đổi mật khẩu ở lần đăng nhập đầu
+    // Cấp tài khoản mới cho nhân viên; mustChange = bắt đổi mật khẩu ở lần đăng nhập đầu.
+    // Chức vụ không được đăng nhập thì trigger TR_UserAccount_CanLogin từ chối.
     public void createStaffAccount(String staffId, String username, String password, boolean mustChange) {
         byte[] salt = PasswordHasher.newSalt();
-        Jdbc.update("INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID, TrainerID) "
-                        + "VALUES (?,?,?,?,?,?,NULL)",
+        Jdbc.update("INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID) "
+                        + "VALUES (?,?,?,?,?,?)",
                 username, PasswordHasher.hash(password, salt, PasswordHasher.ITERATIONS), salt, PasswordHasher.ITERATIONS, mustChange, staffId);
     }
 

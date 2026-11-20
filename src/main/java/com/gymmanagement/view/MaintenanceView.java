@@ -32,10 +32,8 @@ public class MaintenanceView extends JPanel {
     private JPanel actionCell;
     private JLabel editIcon;
     private JLabel deleteIcon;
-    /** Đổi được trạng thái và sửa nội dung phiếu (Quản lý, hoặc Kỹ thuật viên với phiếu của mình). */
-    private boolean canUpdate = true;
-    /** Xóa được phiếu (chỉ Quản lý). */
-    private boolean canDelete = true;
+    /** Có quyền quản lý: đổi trạng thái, sửa và xóa phiếu. */
+    private boolean manageable = true;
 
     private JTextField txtSearch;
     private JComboBox<String> cbFilterStatus;
@@ -162,7 +160,7 @@ public class MaintenanceView extends JPanel {
     }
 
     private boolean isStatusEditable(int row) {
-        return canUpdate && !MaintenanceAssignment.STATUS_DONE.equals(tableModel.getValueAt(row, STATUS_COLUMN));
+        return manageable && !MaintenanceAssignment.STATUS_DONE.equals(tableModel.getValueAt(row, STATUS_COLUMN));
     }
 
     /**
@@ -242,28 +240,19 @@ public class MaintenanceView extends JPanel {
 
     /** Biểu tượng nằm dưới điểm bấm trong cột Thao tác. */
     public Action actionAt(Point p) {
-        if (!canDelete) return Action.EDIT;
         Rectangle cell = table.getCellRect(table.rowAtPoint(p), table.columnAtPoint(p), false);
         return p.x < cell.x + cell.width / 2 ? Action.EDIT : Action.DELETE;
     }
 
     /**
-     * Đặt quyền cho màn hình.
-     * canUpdate: đổi trạng thái và sửa nội dung phiếu. canDelete: xóa phiếu.
-     * Không có quyền nào thì ẩn cột Thao tác, ô trạng thái chỉ hiện chữ.
+     * Đặt quyền cho màn hình: có quyền quản lý thì đổi trạng thái, sửa, xóa được.
+     * Chỉ xem thì ẩn cột Thao tác, ô trạng thái chỉ hiện chữ.
      */
-    public void setAccess(boolean canUpdate, boolean canDelete) {
-        this.canUpdate = canUpdate;
-        this.canDelete = canUpdate && canDelete;
-
-        actionCell.removeAll();
-        actionCell.setLayout(new GridLayout(1, this.canDelete ? 2 : 1));
-        actionCell.add(editIcon);
-        if (this.canDelete) actionCell.add(deleteIcon);
-
+    public void setManageable(boolean manageable) {
+        this.manageable = manageable;
         boolean shown = table.getColumnModel().getColumnCount() == tableModel.getColumnCount();
-        if (!canUpdate && shown) table.getColumnModel().removeColumn(actionColumn);
-        if (canUpdate && !shown) table.getColumnModel().addColumn(actionColumn);
+        if (!manageable && shown) table.getColumnModel().removeColumn(actionColumn);
+        if (manageable && !shown) table.getColumnModel().addColumn(actionColumn);
         table.repaint();
     }
 

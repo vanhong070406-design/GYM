@@ -6,9 +6,7 @@ import com.gymmanagement.dao.TrainerDao;
 import com.gymmanagement.model.Member;
 import com.gymmanagement.model.PTSession;
 import com.gymmanagement.model.Trainer;
-import com.gymmanagement.model.UserSession;
 import com.gymmanagement.view.ActionColumn;
-import com.gymmanagement.view.MainView;
 import com.gymmanagement.view.PTSessionView;
 import com.gymmanagement.view.UITheme;
 import java.awt.*;
@@ -27,7 +25,6 @@ import javax.swing.table.DefaultTableModel;
  */
 public class PTSessionController {
     private final PTSessionView view;
-    private final UserSession session;
     private final MemberDao memberDao = new MemberDao();
     private final PTSessionDao dao = new PTSessionDao();
     private final TrainerDao trainerDao = new TrainerDao();
@@ -37,9 +34,8 @@ public class PTSessionController {
     /** Gọi sau mỗi lần thêm/sửa/xóa lịch, để trang chi tiết cập nhật thống kê. */
     private Runnable onChange = () -> {};
 
-    public PTSessionController(PTSessionView view, UserSession session) {
+    public PTSessionController(PTSessionView view) {
         this.view = view;
-        this.session = session;
         initListeners();
         reload();
     }
@@ -91,10 +87,8 @@ public class PTSessionController {
 
     private List<PTSession> fetchAll() {
         List<PTSession> all = DbAction.fetch(view, dao::findAll, List.of());
-        // HLV chỉ thấy buổi tập của mình, dù trang đang mở là của ai
-        String trainerId = session.isOwnOnly(MainView.CARD_PTSESSION) ? session.getTrainerId() : trainerFilter;
-        if (trainerId == null) return all;
-        return all.stream().filter(s -> s.getTrainerId().equalsIgnoreCase(trainerId)).toList();
+        if (trainerFilter == null) return all;
+        return all.stream().filter(s -> s.getTrainerId().equalsIgnoreCase(trainerFilter)).toList();
     }
 
     public void reload() {
@@ -189,15 +183,7 @@ public class PTSessionController {
         cbTrainer.setBackground(Color.WHITE);
 
         JComboBox<Member> cbMember = new JComboBox<>();
-        if (!session.isOwnOnly(MainView.CARD_PTSESSION)) {
-            for (Member m : DbAction.fetch(view, memberDao::findAll, List.<Member>of())) cbMember.addItem(m);
-        } else if (isEdit) {
-            // HLV không có quyền xem danh sách hội viên, chỉ hiện hội viên của buổi này
-            Member current = new Member();
-            current.setMemberId(sesToEdit.getMemberId());
-            current.setFullName(sesToEdit.getMemberName());
-            cbMember.addItem(current);
-        }
+        for (Member m : DbAction.fetch(view, memberDao::findAll, List.<Member>of())) cbMember.addItem(m);
         cbMember.setFont(UITheme.FONT_REGULAR);
         cbMember.setBackground(Color.WHITE);
 
@@ -223,13 +209,6 @@ public class PTSessionController {
                 }
             }
             cbStatus.setSelectedItem(sesToEdit.getStatus());
-            if (session.isOwnOnly(MainView.CARD_PTSESSION)) {
-                // HLV chỉ cập nhật trạng thái; thời gian và phân công do Lễ tân/Quản lý sắp xếp
-                txtStart.setEditable(false);
-                txtEnd.setEditable(false);
-                cbTrainer.setEnabled(false);
-                cbMember.setEnabled(false);
-            }
         } else {
             txtId.setText(DbAction.fetch(view, dao::nextId, ""));
             // Đặt lịch từ trang của một HLV thì chọn sẵn HLV đó

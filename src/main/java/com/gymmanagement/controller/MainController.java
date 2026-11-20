@@ -102,9 +102,9 @@ public class MainController {
             trainerView.setManageable(session.canManage(MainView.CARD_TRAINER));
         }
         if (canSession) {
-            sessionView.setAccess(session.canManage(MainView.CARD_PTSESSION), session.isOwnOnly(MainView.CARD_PTSESSION));
+            sessionView.setManageable(session.canManage(MainView.CARD_PTSESSION));
         }
-        String title = canTrainer ? "QUẢN LÝ HUẤN LUYỆN VIÊN" : "LỊCH TẬP PT CỦA TÔI";
+        String title = canTrainer ? "QUẢN LÝ HUẤN LUYỆN VIÊN" : "LỊCH TẬP PT";
         register(MainView.CARD_TRAINER, title, new TrainerScreenController(trainerView, session)::reload);
     }
 
@@ -128,12 +128,11 @@ public class MainController {
             view.getEquipmentTabs().remove(view.getEquipmentView());
         }
         if (canMaintenance) {
-            // Quản lý: thêm, đổi trạng thái, sửa, xóa. Kỹ thuật viên (OWN): chỉ đổi trạng thái và sửa phiếu của mình.
+            // Có quyền quản lý: thêm, đổi trạng thái, sửa, xóa; chỉ xem thì ẩn nút thêm và cột Thao tác
             boolean canManageMaintenance = session.canManage(MainView.CARD_MAINTENANCE);
-            boolean canUpdateMaintenance = canManageMaintenance || session.isOwnOnly(MainView.CARD_MAINTENANCE);
             view.getMaintenanceView().getBtnAdd().setVisible(canManageMaintenance);
-            view.getMaintenanceView().setAccess(canUpdateMaintenance, canManageMaintenance);
-            reloads.add(new MaintenanceController(view.getMaintenanceView(), session)::reload);
+            view.getMaintenanceView().setManageable(canManageMaintenance);
+            reloads.add(new MaintenanceController(view.getMaintenanceView())::reload);
         } else {
             view.getEquipmentTabs().remove(view.getMaintenanceView());
         }

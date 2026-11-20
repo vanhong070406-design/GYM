@@ -9,7 +9,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
 
-// Hộp thoại Quản lý cấp tài khoản cho nhân viên 
+// Hộp thoại Quản lý cấp tài khoản cho nhân viên
+// Chỉ Quản lý và Lễ tân được cấp tài khoản (Position.CanLogin); chức vụ khác bị từ chối ngay
 // Nhân viên chưa có tài khoản: nhập tên đăng nhập và mật khẩu tạm
 // Nhân viên đã có tài khoản: giữ nguyên tên đăng nhập, chỉ đặt lại mật khẩu
 
@@ -20,6 +21,10 @@ final class AccountDialog {
 
     // existing = null nếu nhân viên chưa có tài khoản. Trả về true nếu đã lưu thành công.
     static boolean show(Window owner, Staff staff, UserAccountDao.StaffAccount existing) {
+        if (!staff.canLogin()) {
+            warn(owner, "Chức vụ " + staff.getPositionName() + " không được cấp tài khoản đăng nhập.\nChỉ Quản lý và Lễ tân có tài khoản.");
+            return false;
+        }
         UserAccountDao dao = new UserAccountDao();
         boolean isNew = existing == null;
 

@@ -225,10 +225,6 @@ public class SubscriptionController {
 
     /** Thu tiền cho một đăng ký: lập hóa đơn, mặc định số tiền còn nợ, lễ tân thu là người đang đăng nhập. */
     private void showPaymentDialog(Subscription sub) {
-        if (session.getStaffId() == null) {
-            JOptionPane.showMessageDialog(view, "Chỉ tài khoản nhân viên mới lập được hóa đơn.", "Thông báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(view), "Thu tiền " + sub.getSubscriptionId(), true);
         dialog.setSize(640, 360);
         dialog.setLocationRelativeTo(view);
@@ -333,8 +329,7 @@ public class SubscriptionController {
         JCheckBox chkPay = new JCheckBox("Thu tiền ngay");
         chkPay.setFont(UITheme.FONT_REGULAR);
         chkPay.setOpaque(false);
-        chkPay.setSelected(session.getStaffId() != null);
-        chkPay.setEnabled(session.getStaffId() != null);
+        chkPay.setSelected(true);
         JComboBox<String> cbMethod = createMethodCombo();
         chkPay.addActionListener(e -> cbMethod.setEnabled(chkPay.isSelected()));
         cbMethod.setEnabled(chkPay.isSelected());

@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * Điều phối màn hình Huấn luyện viên PT gộp: danh sách HLV và trang chi tiết có lịch tập.
  * Quyền TRAINER quyết định danh sách và nút thêm/sửa/xóa HLV; quyền PTSESSION quyết định bảng lịch tập.
- * Tài khoản không xem được danh sách HLV (tài khoản HLV) thì vào thẳng trang của mình, không có nút quay lại.
+ * Tài khoản chỉ có quyền lịch tập mà không xem được danh sách HLV thì vào thẳng lịch tập của tất cả HLV.
  */
 public class TrainerScreenController {
     private final TrainerView view;
@@ -31,7 +31,7 @@ public class TrainerScreenController {
         this.detail = view.getDetailView();
         this.session = session;
         this.trainers = session.canView(MainView.CARD_TRAINER) ? new TrainerController(view) : null;
-        this.sessions = session.canView(MainView.CARD_PTSESSION) ? new PTSessionController(detail.getSessionView(), session) : null;
+        this.sessions = session.canView(MainView.CARD_PTSESSION) ? new PTSessionController(detail.getSessionView()) : null;
 
         detail.setSessionsVisible(sessions != null);
         view.getBtnAllSessions().setVisible(sessions != null);
@@ -47,8 +47,6 @@ public class TrainerScreenController {
     public void reload() {
         if (trainers != null) {
             showList();
-        } else if (session.getTrainerId() != null) {
-            showTrainer(session.getTrainerId());
         } else {
             showAllSessions();
         }

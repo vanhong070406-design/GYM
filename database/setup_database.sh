@@ -75,6 +75,8 @@ if [[ "$EXISTS" == "1" ]]; then
     echo "Nang cap database hien co..."
     sql -i /tmp/gymdb/04_upgrade_roles.sql
     sql -i /tmp/gymdb/05_equipment_status.sql
+    sql -i /tmp/gymdb/06_drop_manager.sql
+    sql -i /tmp/gymdb/07_login_positions.sql
 else
     echo "Tao schema..."
     sql -i /tmp/gymdb/01_schema.sql

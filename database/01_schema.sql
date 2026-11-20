@@ -19,16 +19,17 @@ GO
 /* ---------- Nhân sự & phân quyền ---------- */
 CREATE TABLE Position (
     PositionID   VARCHAR(5)   NOT NULL CONSTRAINT PK_Position PRIMARY KEY,
-    PositionName NVARCHAR(50) NOT NULL CONSTRAINT UQ_Position_Name UNIQUE
+    PositionName NVARCHAR(50) NOT NULL CONSTRAINT UQ_Position_Name UNIQUE,
+    CanLogin     BIT          NOT NULL CONSTRAINT DF_Position_CanLogin DEFAULT 0   -- 1: nhân viên chức vụ này được cấp tài khoản
 );
 
--- Không có dòng = không thấy màn hình. VIEW: chỉ xem; OWN: chỉ thấy và cập nhật việc của mình; MANAGE: toàn quyền
+-- Không có dòng = không thấy màn hình. VIEW: chỉ xem; MANAGE: toàn quyền
 CREATE TABLE PositionPermission (
     PositionID  VARCHAR(5)  NOT NULL CONSTRAINT FK_PositionPermission_Position REFERENCES Position(PositionID),
     ScreenCode  VARCHAR(20) NOT NULL CONSTRAINT CK_PositionPermission_Screen CHECK (ScreenCode IN
                 ('DASHBOARD','MEMBER','PACKAGE','SUBSCRIPTION','PAYMENT','CHECKIN','TRAINER','PTSESSION',
                  'STAFF','EQUIPMENT','MAINTENANCE')),
-    AccessLevel VARCHAR(10) NOT NULL CONSTRAINT CK_PositionPermission_Level CHECK (AccessLevel IN ('VIEW','OWN','MANAGE')),
+    AccessLevel VARCHAR(10) NOT NULL CONSTRAINT CK_PositionPermission_Level CHECK (AccessLevel IN ('VIEW','MANAGE')),
     CONSTRAINT PK_PositionPermission PRIMARY KEY (PositionID, ScreenCode)
 );
 
@@ -46,9 +47,7 @@ CREATE TABLE Staff (
     Salary     DECIMAL(15,2) NOT NULL CONSTRAINT CK_Staff_Salary CHECK (Salary >= 0),
     ShiftID    VARCHAR(10)   NOT NULL CONSTRAINT FK_Staff_Shift REFERENCES Shift(ShiftID),
     HireDate   DATE          NOT NULL,
-    ManagerID  VARCHAR(10)   NULL     CONSTRAINT FK_Staff_Manager REFERENCES Staff(StaffID),
     PositionID VARCHAR(5)    NOT NULL CONSTRAINT FK_Staff_Position REFERENCES Position(PositionID),
-    CONSTRAINT CK_Staff_NotOwnManager CHECK (ManagerID <> StaffID),
     CONSTRAINT CK_Staff_NotTrainerPosition CHECK (PositionID <> 'HLV')   -- HLV nằm ở bảng Trainer
 );
 
@@ -130,19 +129,16 @@ CREATE TABLE TrainerSpecialty (
     CONSTRAINT PK_TrainerSpecialty PRIMARY KEY (TrainerID, SpecialtyID)
 );
 
-/* ---------- Tài khoản: thuộc về đúng một nhân viên hoặc một HLV ---------- */
+/* ---------- Tài khoản: chỉ nhân viên có chức vụ CanLogin = 1 (Quản lý, Lễ tân) mới có ---------- */
 CREATE TABLE UserAccount (
     Username           VARCHAR(50)   NOT NULL CONSTRAINT PK_UserAccount PRIMARY KEY,
     PasswordHash       VARBINARY(32) NOT NULL,   -- PBKDF2-HMAC-SHA256
     PasswordSalt       VARBINARY(16) NOT NULL,
     Iterations         INT           NOT NULL,
     MustChangePassword BIT           NOT NULL CONSTRAINT DF_UserAccount_MustChange DEFAULT 0,
-    StaffID            VARCHAR(10)   NULL CONSTRAINT FK_UserAccount_Staff   REFERENCES Staff(StaffID)     ON DELETE CASCADE,
-    TrainerID          VARCHAR(10)   NULL CONSTRAINT FK_UserAccount_Trainer REFERENCES Trainer(TrainerID) ON DELETE CASCADE,
-    CONSTRAINT CK_UserAccount_OneOwner CHECK ((StaffID IS NULL AND TrainerID IS NOT NULL) OR (StaffID IS NOT NULL AND TrainerID IS NULL))
+    StaffID            VARCHAR(10)   NOT NULL CONSTRAINT FK_UserAccount_Staff REFERENCES Staff(StaffID) ON DELETE CASCADE
+                                              CONSTRAINT UQ_UserAccount_Staff UNIQUE
 );
-CREATE UNIQUE INDEX UQ_UserAccount_Staff   ON UserAccount(StaffID)   WHERE StaffID IS NOT NULL;
-CREATE UNIQUE INDEX UQ_UserAccount_Trainer ON UserAccount(TrainerID) WHERE TrainerID IS NOT NULL;
 
 
 CREATE TABLE PTSession (
@@ -176,6 +172,42 @@ CREATE TABLE MaintenanceAssignment (
                     CHECK (Status IN (N'Đang bảo trì', N'Chờ linh kiện', N'Đã hoàn thành')),
     CONSTRAINT PK_MaintenanceAssignment PRIMARY KEY (StaffID, EquipmentID, MaintenanceDate)
 );
+GO
+
+/* ---------- Quy tắc chức vụ đăng nhập (CHECK không tham chiếu được bảng khác nên dùng trigger) ---------- */
+-- Không cấp tài khoản cho nhân viên có chức vụ CanLogin = 0
+CREATE TRIGGER TR_UserAccount_CanLogin ON UserAccount AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM inserted i
+               JOIN Staff s ON s.StaffID = i.StaffID
+               JOIN Position p ON p.PositionID = s.PositionID
+               WHERE p.CanLogin = 0)
+        THROW 50001, N'Chức vụ của nhân viên này không được cấp tài khoản đăng nhập.', 1;
+END
+GO
+-- Nhân viên còn tài khoản thì không chuyển sang chức vụ CanLogin = 0 (ứng dụng xóa tài khoản trước rồi mới đổi)
+CREATE TRIGGER TR_Staff_CanLogin ON Staff AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF UPDATE(PositionID) AND EXISTS (SELECT 1 FROM inserted i
+               JOIN UserAccount a ON a.StaffID = i.StaffID
+               JOIN Position p ON p.PositionID = i.PositionID
+               WHERE p.CanLogin = 0)
+        THROW 50002, N'Nhân viên đang có tài khoản đăng nhập nên không chuyển được sang chức vụ này. Hãy xóa tài khoản trước.', 1;
+END
+GO
+-- Không tắt quyền đăng nhập của một chức vụ khi còn nhân viên chức vụ đó có tài khoản
+CREATE TRIGGER TR_Position_CanLogin ON Position AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF UPDATE(CanLogin) AND EXISTS (SELECT 1 FROM inserted i
+               JOIN Staff s ON s.PositionID = i.PositionID
+               JOIN UserAccount a ON a.StaffID = s.StaffID
+               WHERE i.CanLogin = 0)
+        THROW 50003, N'Còn nhân viên thuộc chức vụ này đang có tài khoản. Hãy xóa các tài khoản đó trước khi tắt quyền đăng nhập.', 1;
+END
+GO
 
 SET NOEXEC OFF;
 GO

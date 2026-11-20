@@ -52,17 +52,19 @@ INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('LT', 'PAYMENT', 'MANAGE'),
  ('LT', 'CHECKIN', 'MANAGE'),
  ('LT', 'TRAINER', 'VIEW'),
- ('LT', 'PTSESSION', 'MANAGE'),
+ ('LT', 'PTSESSION', 'MANAGE');
 
 -- Suy ra chức vụ từ dữ liệu đã có
 ALTER TABLE Staff ADD PositionID VARCHAR(5) NULL;
 GO
-UPDATE s SET PositionID = CASE
-    WHEN s.ManagerID IS NULL THEN 'QL'
-    WHEN EXISTS (SELECT 1 FROM MaintenanceAssignment m WHERE m.StaffID = s.StaffID) THEN 'KT'
-    WHEN EXISTS (SELECT 1 FROM AreaCleaning c WHERE c.StaffID = s.StaffID) THEN 'TV'
-    ELSE 'LT' END
-FROM Staff s;
+-- Câu lệnh nhắc tới cột đã bị script sau xóa (Staff.ManagerID ở 06, UserAccount.TrainerID ở 07) phải chạy qua EXEC:
+-- SET NOEXEC ON vẫn biên dịch câu lệnh nên database đã nâng cấp sẽ báo "Invalid column name".
+EXEC(N'UPDATE s SET PositionID = CASE
+    WHEN s.ManagerID IS NULL THEN ''QL''
+    WHEN EXISTS (SELECT 1 FROM MaintenanceAssignment m WHERE m.StaffID = s.StaffID) THEN ''KT''
+    WHEN EXISTS (SELECT 1 FROM AreaCleaning c WHERE c.StaffID = s.StaffID) THEN ''TV''
+    ELSE ''LT'' END
+FROM Staff s;');
 ALTER TABLE Staff ALTER COLUMN PositionID VARCHAR(5) NOT NULL;
 ALTER TABLE Staff ADD CONSTRAINT FK_Staff_Position FOREIGN KEY (PositionID) REFERENCES Position(PositionID);
 ALTER TABLE Staff ADD CONSTRAINT CK_Staff_NotTrainerPosition CHECK (PositionID <> 'HLV');
@@ -75,20 +77,20 @@ ALTER TABLE UserAccount ADD MustChangePassword BIT NOT NULL CONSTRAINT DF_UserAc
                             TrainerID VARCHAR(10) NULL;
 GO
 ALTER TABLE UserAccount ADD CONSTRAINT FK_UserAccount_Staff FOREIGN KEY (StaffID) REFERENCES Staff(StaffID) ON DELETE CASCADE;
-ALTER TABLE UserAccount ADD CONSTRAINT FK_UserAccount_Trainer FOREIGN KEY (TrainerID) REFERENCES Trainer(TrainerID) ON DELETE CASCADE;
-ALTER TABLE UserAccount ADD CONSTRAINT CK_UserAccount_OneOwner CHECK ((StaffID IS NULL AND TrainerID IS NOT NULL) OR (StaffID IS NOT NULL AND TrainerID IS NULL));
+EXEC(N'ALTER TABLE UserAccount ADD CONSTRAINT FK_UserAccount_Trainer FOREIGN KEY (TrainerID) REFERENCES Trainer(TrainerID) ON DELETE CASCADE;');
+EXEC(N'ALTER TABLE UserAccount ADD CONSTRAINT CK_UserAccount_OneOwner CHECK ((StaffID IS NULL AND TrainerID IS NOT NULL) OR (StaffID IS NOT NULL AND TrainerID IS NULL));');
 CREATE UNIQUE INDEX UQ_UserAccount_Staff   ON UserAccount(StaffID)   WHERE StaffID IS NOT NULL;
-CREATE UNIQUE INDEX UQ_UserAccount_Trainer ON UserAccount(TrainerID) WHERE TrainerID IS NOT NULL;
+EXEC(N'CREATE UNIQUE INDEX UQ_UserAccount_Trainer ON UserAccount(TrainerID) WHERE TrainerID IS NOT NULL;');
 GO
-INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID, TrainerID)
+EXEC(N'INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID, TrainerID)
 SELECT v.* FROM (VALUES
- ('admin', 0x8a5ff77e83d040a614e207d0270d1faefdfb87678a7511930a7e8082085348ed, 0xb074204d299b25065f00f16f2354fae3, 120000, 0, 'ST001', NULL),
- ('letan1', 0x6bcca1df932473bb33b41543d1cacff0eed6ba2f44db4013f6d90b75db3c430b, 0x5514c96d11cd90f23032dad3a9e9c3f0, 120000, 0, 'ST002', NULL),
- ('letan2', 0xbd40bb2e10cce8d5689b9c348179fa24b3330aec87392457bb1783db8f875b8c, 0xf59d8dfa67f84ceafb4d0fcf04c87d19, 120000, 0, 'ST003', NULL)
+ (''admin'', 0x8a5ff77e83d040a614e207d0270d1faefdfb87678a7511930a7e8082085348ed, 0xb074204d299b25065f00f16f2354fae3, 120000, 0, ''ST001'', NULL),
+ (''letan1'', 0x6bcca1df932473bb33b41543d1cacff0eed6ba2f44db4013f6d90b75db3c430b, 0x5514c96d11cd90f23032dad3a9e9c3f0, 120000, 0, ''ST002'', NULL),
+ (''letan2'', 0xbd40bb2e10cce8d5689b9c348179fa24b3330aec87392457bb1783db8f875b8c, 0xf59d8dfa67f84ceafb4d0fcf04c87d19, 120000, 0, ''ST003'', NULL)
 ) v(Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID, TrainerID)
 WHERE NOT EXISTS (SELECT 1 FROM UserAccount a WHERE a.Username = v.Username OR a.StaffID = v.StaffID OR a.TrainerID = v.TrainerID)
   AND (v.StaffID IS NULL OR EXISTS (SELECT 1 FROM Staff s WHERE s.StaffID = v.StaffID))
-  AND (v.TrainerID IS NULL OR EXISTS (SELECT 1 FROM Trainer t WHERE t.TrainerID = v.TrainerID));
+  AND (v.TrainerID IS NULL OR EXISTS (SELECT 1 FROM Trainer t WHERE t.TrainerID = v.TrainerID));');
 GO
 -- Buổi PT: gán hội viên cho các buổi mẫu; buổi khác (nếu có) tạm gán hội viên đầu tiên, cần kiểm tra lại trên màn hình Lịch PT
 ALTER TABLE PTSession ADD MemberID VARCHAR(10) NULL;

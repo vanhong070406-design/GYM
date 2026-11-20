@@ -4,8 +4,6 @@ package com.gymmanagement.model;
 public enum AccessLevel {
     /** Chỉ xem. */
     VIEW,
-    /** Chỉ thấy và cập nhật công việc được giao cho chính mình. */
-    OWN,
     /** Toàn quyền thêm, sửa, xóa. */
     MANAGE
 }

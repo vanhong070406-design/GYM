@@ -4,6 +4,7 @@ import com.gymmanagement.view.ActionColumn.Action;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.util.Map;
+import java.util.Set;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -11,12 +12,15 @@ import javax.swing.table.DefaultTableModel;
 // Giao diện Quản lý nhân viên (Staff Management)
 // Các trường: StaffID, FullName, Phone, Salary, Shift, HireDate, Position, Username, trạng thái mật khẩu.
 // Cấp tài khoản / sửa / xóa bằng biểu tượng ở cột Thao tác; nút làm mới nằm trên đầu bảng cạnh số nhân viên.
+// Chỉ Quản lý và Lễ tân được cấp tài khoản: dòng của chức vụ khác có chìa khóa mờ và cột tài khoản ghi "Không áp dụng".
 // Mật khẩu được băm một chiều nên cột Mật khẩu chỉ hiện trạng thái, không hiện được mật khẩu thật.
 
 public class StaffView extends JPanel {
     public static final int ACTION_COLUMN = 9;
     // Chữ ở cột Tên đăng nhập / Mật khẩu khi nhân viên chưa có tài khoản
     public static final String NO_ACCOUNT = "Chưa cấp";
+    // Chữ ở cột Tên đăng nhập / Mật khẩu khi chức vụ không được cấp tài khoản (chỉ Quản lý, Lễ tân có)
+    public static final String NOT_APPLICABLE = "Không áp dụng";
 
     private JTable table;
     private DefaultTableModel tableModel;
@@ -24,6 +28,8 @@ public class StaffView extends JPanel {
     private TableHeader tableHeader;
     // Nhân viên đang đăng nhập: không được tự xóa nên biểu tượng xóa ở dòng này bị làm mờ
     private String currentStaffId;
+    // Nhân viên có chức vụ được đăng nhập: chỉ các dòng này bấm được biểu tượng chìa khóa
+    private Set<String> loginStaffIds = Set.of();
 
     private JTextField txtSearch;
     private JButton btnSearch;
@@ -104,8 +110,10 @@ public class StaffView extends JPanel {
                 Action.EDIT, "Chỉnh sửa nhân viên",
                 Action.DELETE, "Xóa nhân viên"));
         actionColumn.setActions(Action.ACCOUNT, Action.EDIT, Action.DELETE);
-        actionColumn.setDisabledWhen((row, action) -> action == Action.DELETE && isCurrentUserRow(row),
-                Map.of(Action.DELETE, "Không thể xóa tài khoản đang đăng nhập"));
+        actionColumn.setDisabledWhen((row, action) ->
+                        (action == Action.DELETE && isCurrentUserRow(row)) || (action == Action.ACCOUNT && !canLoginRow(row)),
+                Map.of(Action.DELETE, "Không thể xóa tài khoản đang đăng nhập",
+                        Action.ACCOUNT, "Chức vụ này không được cấp tài khoản (chỉ Quản lý và Lễ tân)"));
 
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
@@ -122,6 +130,15 @@ public class StaffView extends JPanel {
 
     public void setCurrentStaffId(String staffId) {
         this.currentStaffId = staffId;
+        table.repaint();
+    }
+
+    private boolean canLoginRow(int row) {
+        return loginStaffIds.contains(String.valueOf(tableModel.getValueAt(row, 0)));
+    }
+
+    public void setLoginStaffIds(Set<String> staffIds) {
+        this.loginStaffIds = Set.copyOf(staffIds);
         table.repaint();
     }
 

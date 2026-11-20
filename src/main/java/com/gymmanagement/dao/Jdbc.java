@@ -129,8 +129,6 @@ public final class Jdbc {
     private record ForeignKeyMessage(String missing, String inUse) {}
 
     private static final Map<String, ForeignKeyMessage> FOREIGN_KEY_MESSAGES = Map.ofEntries(
-            Map.entry("FK_Staff_Manager", new ForeignKeyMessage("Mã quản lý không tồn tại.",
-                    "Nhân viên này đang là quản lý của nhân viên khác. Hãy đổi quản lý cho họ trước.")),
             Map.entry("FK_Staff_Shift", new ForeignKeyMessage("Ca làm việc không tồn tại.", "Ca làm việc đang có nhân viên.")),
             Map.entry("FK_Staff_Position", new ForeignKeyMessage("Chức vụ không tồn tại.", "Chức vụ đang có nhân viên.")),
             Map.entry("FK_PositionPermission_Position", new ForeignKeyMessage("Chức vụ không tồn tại.", "Chức vụ đang có phân quyền.")),
@@ -165,7 +163,6 @@ public final class Jdbc {
             Map.entry("UQ_PTSession_Member_Start", "Hội viên đã có buổi tập khác bắt đầu cùng giờ."),
             Map.entry("UQ_UserAccount_Staff", "Nhân viên này đã có tài khoản."),
             Map.entry("UQ_UserAccount_Trainer", "Huấn luyện viên này đã có tài khoản."),
-            Map.entry("CK_Staff_NotOwnManager", "Nhân viên không thể tự quản lý mình."),
             Map.entry("CK_Staff_NotTrainerPosition", "Huấn luyện viên được quản lý ở màn hình Quản lý Huấn luyện viên, không chọn chức vụ này cho nhân viên."),
             Map.entry("CK_Staff_Salary", "Mức lương không được âm."),
             Map.entry("CK_GymPackage_Price", "Giá gói tập không được âm."),
@@ -179,7 +176,7 @@ public final class Jdbc {
             Map.entry("CK_Equipment_Status", "Trạng thái thiết bị chỉ được là Hoạt động tốt, Cần thay thế linh kiện hoặc Tới hạn bảo trì định kỳ. "
                     + "Nếu database được tạo từ bản cũ, hãy chạy lại script setup_database."));
 
-    /** SQL Server ghi tên ràng buộc trong dấu nháy, ví dụ: constraint "FK_Staff_Manager" hoặc 'UQ_Staff_Phone'. */
+    /** SQL Server ghi tên ràng buộc trong dấu nháy, ví dụ: constraint "FK_Staff_Shift" hoặc 'UQ_Staff_Phone'. */
     private static final Pattern CONSTRAINT_NAME = Pattern.compile("[\"']((?:PK|FK|UQ|CK)_\\w+)[\"']");
 
     private static DataAccessException translate(SQLException e) {
@@ -204,6 +201,8 @@ public final class Jdbc {
                         ? "Không thể thực hiện: bản ghi đang được dữ liệu khác sử dụng."
                         : "Không thể thực hiện: mã liên kết không tồn tại.";
             }
+            // Trigger quy tắc chức vụ đăng nhập (THROW 5000x): thông báo đã viết sẵn bằng tiếng Việt
+            case 50001, 50002, 50003 -> detail;
             case 18456 -> "Sai tài khoản kết nối database. Kiểm tra file db.properties.";
             case 4060 -> "Không mở được database GymManagementDB. Hãy chạy database\\setup_database.ps1 (Windows) hoặc database/setup_database.sh (macOS).";
             default -> "Lỗi cơ sở dữ liệu: " + detail;

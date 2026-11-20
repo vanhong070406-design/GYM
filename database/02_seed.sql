@@ -14,12 +14,13 @@ DECLARE @in2 DATETIME2(0) = DATEADD(MINUTE, -10, @current);
 IF @in1 < @now SET @in1 = @now;
 IF @in2 < @now SET @in2 = @now;
 
-INSERT INTO Position (PositionID, PositionName) VALUES
- ('QL',  N'Quản lý'),
- ('LT',  N'Lễ tân'),
- ('KT',  N'Kỹ thuật viên'),
- ('TV',  N'Tạp vụ'),
- ('HLV', N'Huấn luyện viên');
+-- Chỉ Quản lý và Lễ tân đăng nhập được; các chức vụ khác chỉ là hồ sơ nhân sự
+INSERT INTO Position (PositionID, PositionName, CanLogin) VALUES
+ ('QL',  N'Quản lý',         1),
+ ('LT',  N'Lễ tân',          1),
+ ('KT',  N'Kỹ thuật viên',   0),
+ ('TV',  N'Tạp vụ',          0),
+ ('HLV', N'Huấn luyện viên', 0);
 
 INSERT INTO PositionPermission (PositionID, ScreenCode, AccessLevel) VALUES
  ('QL', 'DASHBOARD', 'MANAGE'),
@@ -46,14 +47,13 @@ INSERT INTO Shift (ShiftID, ShiftName, StartTime, EndTime) VALUES
  ('HC',    N'Ca hành chính', '08:00', '17:00'),
  ('DEM',   N'Ca đêm',        '22:00', '06:00');
 
--- Chèn quản lý trước vì ManagerID tham chiếu chính bảng Staff
-INSERT INTO Staff (StaffID, FullName, Phone, Salary, ShiftID, HireDate, ManagerID, PositionID) VALUES
- ('ST001', N'Hoàng Văn Quản Lý', '0908889999', 25000000, 'HC', '2022-01-10', NULL, 'QL');
-INSERT INTO Staff (StaffID, FullName, Phone, Salary, ShiftID, HireDate, ManagerID, PositionID) VALUES
- ('ST002', N'Nguyễn Lễ Tân 1', '0901112222',  9000000, 'SANG',  '2023-03-15', 'ST001', 'LT'),
- ('ST003', N'Trần Lễ Tân 2',   '0902223333',  9000000, 'CHIEU', '2023-04-01', 'ST001', 'LT'),
- ('ST004', N'Phạm Kỹ Thuật',   '0903334444', 12000000, 'SANG',  '2022-08-20', 'ST001', 'KT'),
- ('ST005', N'Lê Tạp Vụ',       '0904445555',  7500000, 'SANG',  '2023-06-01', 'ST001', 'TV');
+-- Hệ thống chỉ có 1 quản lý (chức vụ QL), không lưu ai quản lý ai
+INSERT INTO Staff (StaffID, FullName, Phone, Salary, ShiftID, HireDate, PositionID) VALUES
+ ('ST001', N'Hoàng Văn Quản Lý', '0908889999', 25000000, 'HC',    '2022-01-10', 'QL'),
+ ('ST002', N'Nguyễn Lễ Tân 1',   '0901112222',  9000000, 'SANG',  '2023-03-15', 'LT'),
+ ('ST003', N'Trần Lễ Tân 2',     '0902223333',  9000000, 'CHIEU', '2023-04-01', 'LT'),
+ ('ST004', N'Phạm Kỹ Thuật',     '0903334444', 12000000, 'SANG',  '2022-08-20', 'KT'),
+ ('ST005', N'Lê Tạp Vụ',         '0904445555',  7500000, 'SANG',  '2023-06-01', 'TV');
 
 INSERT INTO Member (MemberID, FullName, Email, Phone, JoinDate, Address, BirthDate, Gender) VALUES
  ('MB001', N'Nguyễn Văn An',   'an.nguyen@gmail.com',  '0901234567', '2024-01-15', N'123 Lê Lợi, Q.1, TP.HCM',            '1995-05-12', N'Nam'),
@@ -100,11 +100,11 @@ INSERT INTO Trainer (TrainerID, FullName, Phone, ExperienceYears) VALUES
  ('TR003', N'Lê Văn Hùng',      '0933445566', 5),
  ('TR004', N'Đặng Thị Thảo',    '0944556677', 3);
 
--- Tài khoản mẫu, mật khẩu đều là 123456 (PBKDF2-HMAC-SHA256, 120000 vòng, salt riêng)
-INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID, TrainerID) VALUES
- ('admin', 0x8a5ff77e83d040a614e207d0270d1faefdfb87678a7511930a7e8082085348ed, 0xb074204d299b25065f00f16f2354fae3, 120000, 0, 'ST001', NULL),
- ('letan1', 0x6bcca1df932473bb33b41543d1cacff0eed6ba2f44db4013f6d90b75db3c430b, 0x5514c96d11cd90f23032dad3a9e9c3f0, 120000, 0, 'ST002', NULL),
- ('letan2', 0xbd40bb2e10cce8d5689b9c348179fa24b3330aec87392457bb1783db8f875b8c, 0xf59d8dfa67f84ceafb4d0fcf04c87d19, 120000, 0, 'ST003', NULL);
+-- Tài khoản mẫu (chỉ Quản lý và Lễ tân), mật khẩu đều là 123456 (PBKDF2-HMAC-SHA256, 120000 vòng, salt riêng)
+INSERT INTO UserAccount (Username, PasswordHash, PasswordSalt, Iterations, MustChangePassword, StaffID) VALUES
+ ('admin', 0x8a5ff77e83d040a614e207d0270d1faefdfb87678a7511930a7e8082085348ed, 0xb074204d299b25065f00f16f2354fae3, 120000, 0, 'ST001'),
+ ('letan1', 0x6bcca1df932473bb33b41543d1cacff0eed6ba2f44db4013f6d90b75db3c430b, 0x5514c96d11cd90f23032dad3a9e9c3f0, 120000, 0, 'ST002'),
+ ('letan2', 0xbd40bb2e10cce8d5689b9c348179fa24b3330aec87392457bb1783db8f875b8c, 0xf59d8dfa67f84ceafb4d0fcf04c87d19, 120000, 0, 'ST003');
 
 INSERT INTO Specialty (SpecialtyName) VALUES
  (N'Thể hình'), (N'Tăng cơ'), (N'Giảm mỡ'), (N'Pilates'), (N'Yoga'),
