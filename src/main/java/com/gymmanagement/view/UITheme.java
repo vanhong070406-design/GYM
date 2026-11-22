@@ -230,9 +230,18 @@ public class UITheme {
         });
     }
 
+    // Bảng bình thường tự co cột cho vừa cửa sổ nên không bao giờ có thanh cuộn ngang.
+    // Hàm này trả về true khi cửa sổ còn rộng (cột giãn ra cho vừa),
+    // trả về false khi cửa sổ hẹp hơn bề rộng các cột (lúc đó mới hiện thanh cuộn ngang).
+    public static boolean tracksViewportWidth(JTable table) {
+        return table.getParent() instanceof JViewport viewport
+                && viewport.getWidth() >= table.getPreferredSize().width;
+    }
+
     /**
      * Áp dụng phong cách chuẩn cho JTable
      */
+
     public static void styleTable(JTable table) {
         table.setFont(FONT_REGULAR);
         table.setRowHeight(32);

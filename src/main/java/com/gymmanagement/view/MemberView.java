@@ -96,6 +96,10 @@ public class MemberView extends JPanel {
 
     private JTable createTable() {
         JTable t = new JTable(tableModel) {
+            // cửa sổ hẹp thì hiện thanh cuộn ngang để không bị mất cột
+            @Override
+            public boolean getScrollableTracksViewportWidth() { return UITheme.tracksViewportWidth(this); }
+
             @Override
             public String getToolTipText(MouseEvent e) {
                 if (actionColumn.isAt(e.getPoint())) return actionColumn.tooltipAt(e.getPoint());
