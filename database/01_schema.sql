@@ -77,6 +77,7 @@ CREATE TABLE Subscription (
     SubscriptionID VARCHAR(10)  NOT NULL CONSTRAINT PK_Subscription PRIMARY KEY,
     MemberID       VARCHAR(10)  NOT NULL CONSTRAINT FK_Subscription_Member  REFERENCES Member(MemberID),
     PackageID      VARCHAR(10)  NOT NULL CONSTRAINT FK_Subscription_Package REFERENCES GymPackage(PackageID),
+    Price          DECIMAL(15,2) NOT NULL CONSTRAINT CK_Subscription_Price CHECK (Price >= 0),  -- giá gói chốt lúc đăng ký; gói đổi giá sau đó không ảnh hưởng
     StartDate      DATE         NOT NULL,
     EndDate        DATE         NOT NULL,
     Status         NVARCHAR(20) NOT NULL CONSTRAINT CK_Subscription_Status

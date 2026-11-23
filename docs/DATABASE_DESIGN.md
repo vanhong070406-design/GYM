@@ -1,7 +1,7 @@
 # Thiết kế cơ sở dữ liệu – Quản lý Phòng Gym
 
 - Hệ quản trị: SQL Server 2022, database `GymManagementDB`
-- Script nằm trong thư mục `database/`: `01_schema.sql` (tạo bảng), `02_seed.sql` (dữ liệu mẫu), `03_app_login.sql` (login cho ứng dụng), `04_upgrade_roles.sql`, `05_equipment_status.sql`, `06_drop_manager.sql` và `07_login_positions.sql` (nâng cấp database cũ)
+- Script nằm trong thư mục `database/`: `01_schema.sql` (tạo bảng), `02_seed.sql` (dữ liệu mẫu), `03_app_login.sql` (login cho ứng dụng), `04_upgrade_roles.sql`, `05_equipment_status.sql`, `06_drop_manager.sql`, `07_login_positions.sql` và `08_subscription_price.sql` (nâng cấp database cũ)
 
 ## 1. Các bảng và chức năng
 
@@ -36,6 +36,7 @@ Lúc đầu dữ liệu chỉ lưu trong bộ nhớ (List trong Java) nên có n
 | Ngày và tiền lưu bằng `String`, `double` | Sai kiểu, tiền dễ bị sai số | Dùng `DATE`, `DATETIME2`, `DECIMAL(15,2)` |
 | Mật khẩu viết cứng trong `LoginController` | Không có chỗ lưu tài khoản | Thêm bảng `UserAccount`, mật khẩu băm PBKDF2 có salt |
 | Bảo trì chưa có khóa chính | Không phân biệt được các lần bảo trì | Khóa tổ hợp (StaffID, EquipmentID, MaintenanceDate) |
+| Số tiền phải thu lấy theo giá hiện tại của gói (`GymPackage.Price`) | Gói đổi giá thì đăng ký cũ, kể cả đã trả đủ hoặc đã hết hạn, bị tính nợ lại | Thêm cột `Subscription.Price` chốt giá lúc đăng ký |
 
 ## 3. Kiểm tra dạng chuẩn BCNF
 
@@ -63,6 +64,7 @@ Một bảng đạt BCNF khi vế trái của mọi phụ thuộc hàm không t�
 ### Một số chỗ nhìn giống vi phạm nhưng thực ra không
 
 - **`Subscription.EndDate`**: nhìn thì tưởng {StartDate, PackageID} → EndDate. Nhưng ứng dụng cho sửa `EndDate` (gia hạn, bù ngày tạm dừng), và nếu sau này gói đổi `DurationDays` thì hợp đồng cũ vẫn giữ nguyên. Vì vậy không có phụ thuộc hàm này. `DurationDays` chỉ dùng để gợi ý ngày kết thúc khi đăng ký mới.
+- **`Subscription.Price`**: nhìn giống bản sao của `GymPackage.Price` nhưng không phụ thuộc vào nó. Đây là giá chốt lúc đăng ký: gói đổi giá sau đó thì đăng ký cũ vẫn giữ giá cũ (giống cách lưu `EndDate`). Đổi đăng ký sang gói khác thì chốt lại theo giá của gói mới.
 - **`Payment.Amount`**: không phụ thuộc vào `GymPackage.Price` vì hóa đơn ghi số tiền thực thu (có thể giảm giá hoặc trả làm nhiều lần).
 - **`Payment` không có `MemberID`**: có thể suy ra từ `SubscriptionID`. Nếu thêm vào sẽ bị phụ thuộc bắc cầu.
 - **`Subscription.Status`**: trạng thái "Hết hạn" phụ thuộc vào ngày hiện tại chứ không phụ thuộc cột nào trong bảng, nên không tạo phụ thuộc hàm. Ứng dụng tự chuyển sang "Hết hạn" khi tải danh sách.

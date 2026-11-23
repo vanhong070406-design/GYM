@@ -168,6 +168,7 @@ public final class Jdbc {
             Map.entry("CK_GymPackage_Price", "Giá gói tập không được âm."),
             Map.entry("CK_GymPackage_Duration", "Thời hạn gói tập phải lớn hơn 0 ngày."),
             Map.entry("CK_Subscription_Dates", "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu."),
+            Map.entry("CK_Subscription_Price", "Giá đăng ký không được âm."),
             Map.entry("CK_Payment_Amount", "Số tiền thanh toán phải lớn hơn 0."),
             Map.entry("CK_Checkin_Times", "Giờ ra phải sau giờ vào."),
             Map.entry("CK_PTSession_Times", "Giờ kết thúc phải sau giờ bắt đầu."),

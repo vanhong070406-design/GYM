@@ -7,7 +7,8 @@ import java.util.List;
 
 /**
  * Model đại diện cho Đăng ký gói tập (Subscription)
- * memberName, packageName, price, durationDays, paidAmount: chỉ đọc, lấy từ JOIN để hiển thị, không lưu trong bảng này.
+ * price: giá gói chốt lúc đăng ký (cột Subscription.Price); gói đổi giá sau đó không làm đổi số tiền phải thu.
+ * memberName, packageName, durationDays, paidAmount: chỉ đọc, lấy từ JOIN để hiển thị, không lưu trong bảng này.
  */
 public class Subscription {
     public static final String STATUS_ACTIVE = "Đang hoạt động";
@@ -55,7 +56,7 @@ public class Subscription {
         return State.ACTIVE;
     }
 
-    /** Số tiền còn phải thu so với giá gói hiện tại; không âm. */
+    /** Số tiền còn phải thu so với giá chốt lúc đăng ký; không âm. */
     public BigDecimal remaining() {
         return price.subtract(paidAmount).max(BigDecimal.ZERO);
     }

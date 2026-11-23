@@ -6,10 +6,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 public class SubscriptionDao {
-    /** Kèm tên hội viên, thông tin gói và tổng tiền đã thu của từng đăng ký. */
+    /** Kèm tên hội viên, thông tin gói, giá chốt lúc đăng ký và tổng tiền đã thu của từng đăng ký. */
     public List<Subscription> findAll() {
         return Jdbc.query("SELECT s.SubscriptionID, s.StartDate, s.EndDate, s.Status, s.MemberID, s.PackageID, m.FullName, "
-                        + "g.PackageName, g.Price, g.DurationDays, "
+                        + "g.PackageName, s.Price, g.DurationDays, "
                         + "COALESCE((SELECT SUM(p.Amount) FROM Payment p WHERE p.SubscriptionID = s.SubscriptionID), 0) "
                         + "FROM Subscription s "
                         + "JOIN Member m ON m.MemberID = s.MemberID "
@@ -39,8 +39,8 @@ public class SubscriptionDao {
      */
     public void insertWithPayment(Subscription x, Payment payment) {
         Jdbc.inTransaction(c -> {
-            Jdbc.update(c, "INSERT INTO Subscription (SubscriptionID, MemberID, PackageID, StartDate, EndDate, Status) VALUES (?,?,?,?,?,?)",
-                    x.getSubscriptionId(), x.getMemberId(), x.getPackageId(), x.getStartDate(), x.getEndDate(), x.getStatus());
+            Jdbc.update(c, "INSERT INTO Subscription (SubscriptionID, MemberID, PackageID, Price, StartDate, EndDate, Status) VALUES (?,?,?,?,?,?,?)",
+                    x.getSubscriptionId(), x.getMemberId(), x.getPackageId(), x.getPrice(), x.getStartDate(), x.getEndDate(), x.getStatus());
             if (payment != null) {
                 Jdbc.update(c, "INSERT INTO Payment (PaymentID, PaymentDate, PaymentMethod, Amount, SubscriptionID, ReceptionistID) VALUES (?,?,?,?,?,?)",
                         payment.getPaymentId(), payment.getPaymentDate(), payment.getPaymentMethod(), payment.getAmount(),
@@ -56,13 +56,13 @@ public class SubscriptionDao {
     }
 
     public void insert(Subscription x) {
-        Jdbc.update("INSERT INTO Subscription (SubscriptionID, MemberID, PackageID, StartDate, EndDate, Status) VALUES (?,?,?,?,?,?)",
-                x.getSubscriptionId(), x.getMemberId(), x.getPackageId(), x.getStartDate(), x.getEndDate(), x.getStatus());
+        Jdbc.update("INSERT INTO Subscription (SubscriptionID, MemberID, PackageID, Price, StartDate, EndDate, Status) VALUES (?,?,?,?,?,?,?)",
+                x.getSubscriptionId(), x.getMemberId(), x.getPackageId(), x.getPrice(), x.getStartDate(), x.getEndDate(), x.getStatus());
     }
 
     public void update(Subscription x) {
-        Jdbc.update("UPDATE Subscription SET MemberID=?, PackageID=?, StartDate=?, EndDate=?, Status=? WHERE SubscriptionID=?",
-                x.getMemberId(), x.getPackageId(), x.getStartDate(), x.getEndDate(), x.getStatus(), x.getSubscriptionId());
+        Jdbc.update("UPDATE Subscription SET MemberID=?, PackageID=?, Price=?, StartDate=?, EndDate=?, Status=? WHERE SubscriptionID=?",
+                x.getMemberId(), x.getPackageId(), x.getPrice(), x.getStartDate(), x.getEndDate(), x.getStatus(), x.getSubscriptionId());
     }
 
     public void delete(String id) {

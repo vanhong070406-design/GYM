@@ -70,13 +70,13 @@ INSERT INTO GymPackage (PackageID, PackageName, Price, DurationDays, Description
  ('PK04', N'Gói VIP (12 Tháng)',          4500000, 365, N'Tập không giới hạn, khăn tắm, 5 buổi PT miễn phí'),
  ('PK05', N'Gói Yoga & Pilates (1 Tháng)', 800000,  30, N'Tham gia các lớp Yoga và thảm tập chuyên biệt');
 
-INSERT INTO Subscription (SubscriptionID, MemberID, PackageID, StartDate, EndDate, Status) VALUES
- ('SUB001', 'MB001', 'PK04', DATEADD(DAY,-150,@today), DATEADD(DAY,215,@today), N'Đang hoạt động'),
- ('SUB002', 'MB002', 'PK02', DATEADD(DAY, -60,@today), DATEADD(DAY, 30,@today), N'Đang hoạt động'),
- ('SUB003', 'MB003', 'PK01', DATEADD(DAY,-120,@today), DATEADD(DAY,-90,@today), N'Hết hạn'),
- ('SUB004', 'MB004', 'PK03', DATEADD(DAY, -30,@today), DATEADD(DAY,150,@today), N'Đang hoạt động'),
- ('SUB005', 'MB005', 'PK05', DATEADD(DAY, -90,@today), DATEADD(DAY,-60,@today), N'Hết hạn'),
- ('SUB006', 'MB006', 'PK02', DATEADD(DAY,  -1,@today), DATEADD(DAY, 89,@today), N'Đang hoạt động');
+INSERT INTO Subscription (SubscriptionID, MemberID, PackageID, Price, StartDate, EndDate, Status) VALUES
+ ('SUB001', 'MB001', 'PK04', 4500000, DATEADD(DAY,-150,@today), DATEADD(DAY,215,@today), N'Đang hoạt động'),
+ ('SUB002', 'MB002', 'PK02', 1350000, DATEADD(DAY, -60,@today), DATEADD(DAY, 30,@today), N'Đang hoạt động'),
+ ('SUB003', 'MB003', 'PK01',  500000, DATEADD(DAY,-120,@today), DATEADD(DAY,-90,@today), N'Hết hạn'),
+ ('SUB004', 'MB004', 'PK03', 2500000, DATEADD(DAY, -30,@today), DATEADD(DAY,150,@today), N'Đang hoạt động'),
+ ('SUB005', 'MB005', 'PK05',  800000, DATEADD(DAY, -90,@today), DATEADD(DAY,-60,@today), N'Hết hạn'),
+ ('SUB006', 'MB006', 'PK02', 1350000, DATEADD(DAY,  -1,@today), DATEADD(DAY, 89,@today), N'Đang hoạt động');
 
 INSERT INTO Payment (PaymentID, PaymentDate, PaymentMethod, Amount, SubscriptionID, ReceptionistID) VALUES
  ('PM001', DATEADD(DAY,-150,@today), N'Chuyển khoản', 4500000, 'SUB001', 'ST002'),

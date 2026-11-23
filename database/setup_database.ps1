@@ -29,6 +29,7 @@ if ($exists -eq "1") {
     Invoke-Sql @("-i", (Join-Path $sql "05_equipment_status.sql"))
     Invoke-Sql @("-i", (Join-Path $sql "06_drop_manager.sql"))
     Invoke-Sql @("-i", (Join-Path $sql "07_login_positions.sql"))
+    Invoke-Sql @("-i", (Join-Path $sql "08_subscription_price.sql"))
 } else {
     Write-Host "Tao schema..."
     Invoke-Sql @("-i", (Join-Path $sql "01_schema.sql"))

@@ -440,6 +440,8 @@ public class SubscriptionController {
             }
 
             if (isEdit) {
+                // Đổi sang gói khác thì chốt giá của gói mới; giữ gói cũ thì giữ giá đã chốt lúc đăng ký
+                if (!selPkg.getPackageId().equalsIgnoreCase(subToEdit.getPackageId())) subToEdit.setPrice(selPkg.getPrice());
                 subToEdit.setMemberId(selMember.getMemberId());
                 subToEdit.setPackageId(selPkg.getPackageId());
                 subToEdit.setStartDate(startDate);
@@ -450,6 +452,7 @@ public class SubscriptionController {
             } else {
                 Subscription newSub = new Subscription(id, startDate, endDate, Subscription.STATUS_ACTIVE,
                         selMember.getMemberId(), selPkg.getPackageId());
+                newSub.setPrice(selPkg.getPrice()); // chốt giá gói tại thời điểm đăng ký / gia hạn
                 Payment pay = null;
                 if (chkPay.isSelected()) {
                     String payId = DbAction.fetch(dialog, paymentDao::nextId, null);
